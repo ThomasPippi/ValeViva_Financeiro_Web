@@ -1,8 +1,70 @@
 @import "tailwindcss";
 
+/* Tailwind `dark:` segue o atributo data-theme (definido em app/layout.tsx). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #f5f7f6;
+  --surface: #ffffff;
+  --surface-2: #f0f3f2;
+  --border: #e2e7e5;
+  --text: #14201b;
+  --text-muted: #63716b;
+  --accent: #0e8a5f;
+  --accent-contrast: #ffffff;
+  --accent-soft: #e3f4ec;
+  --danger: #c0392b;
+  --danger-soft: #fbe9e7;
+  --warning: #a86a00;
+  --warning-soft: #fdf1d8;
+  --shadow: 0 1px 2px rgb(16 24 20 / 0.06), 0 1px 3px rgb(16 24 20 / 0.04);
+
+  --sidebar-width: 248px;
+  --sidebar-width-collapsed: 72px;
+  --sidebar-current: var(--sidebar-width);
+  --topbar-height: 60px;
+
+  --background: var(--bg);
+  --foreground: var(--text);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1211;
+  --surface: #141b19;
+  --surface-2: #1b2421;
+  --border: #26322e;
+  --text: #e6ece9;
+  --text-muted: #8d9b95;
+  --accent: #34c38f;
+  --accent-contrast: #06140f;
+  --accent-soft: #143328;
+  --danger: #ef6f61;
+  --danger-soft: #3a1c19;
+  --warning: #e5a83a;
+  --warning-soft: #3a2c12;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  color-scheme: dark;
+}
+
+/* Sem JS (script de tema não rodou): segue a preferência do sistema. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #0d1211;
+    --surface: #141b19;
+    --surface-2: #1b2421;
+    --border: #26322e;
+    --text: #e6ece9;
+    --text-muted: #8d9b95;
+    --accent: #34c38f;
+    --accent-contrast: #06140f;
+    --accent-soft: #143328;
+    color-scheme: dark;
+  }
+}
+
+:root[data-sidebar="collapsed"] {
+  --sidebar-current: var(--sidebar-width-collapsed);
 }
 
 @theme inline {
@@ -12,15 +74,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
