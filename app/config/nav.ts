@@ -19,7 +19,12 @@ export type NavSection = {
 export const navSections: NavSection[] = [
   {
     title: "Geral",
-    items: [{ label: "Dashboard", href: "/dashboard", icon: "dashboard" }],
+    items: [
+      { label: "Dashboard", href: "/dashboard", icon: "dashboard" },
+      { label: "Estoque", href: "/estoque", icon: "dashboard" },
+      { label: "Expedição", href: "/expedicao", icon: "dashboard" },
+      { label: "Notificações", href: "/notificacao", icon: "dashboard" },
+    ],
   },
   {
     title: "Gestão",
