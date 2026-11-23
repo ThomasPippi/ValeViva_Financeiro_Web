@@ -1,0 +1,131 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header h1 {
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.header p {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ---------- Resumo ---------- */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.summaryCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.summaryCard span {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.summaryCard strong {
+  font-size: clamp(16px, 4.4vw, 20px);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.summaryCard[data-tone="danger"] strong {
+  color: var(--danger);
+}
+
+.summaryCard[data-tone="success"] strong {
+  color: var(--accent);
+}
+
+/* ---------- Tabela ---------- */
+.tableWrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th,
+.table td {
+  padding: 12px 16px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table th {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: var(--surface-2);
+}
+
+.table tbody tr + tr td {
+  border-top: 1px solid var(--border);
+}
+
+.table tbody tr:hover td {
+  background: var(--surface-2);
+}
+
+.num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge[data-status="pago"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.badge[data-status="pendente"] {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.badge[data-status="atrasado"] {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
