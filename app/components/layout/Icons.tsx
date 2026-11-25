@@ -1,4 +1,4 @@
-import type { SVGProps } from "react";
+import type { ReactElement, SVGProps } from "react";
 import type { IconName } from "@/app/config/nav";
 
 type IconProps = SVGProps<SVGSVGElement>;
@@ -38,6 +38,36 @@ export const WalletIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const BellIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+  </Svg>
+);
+
+export const RawMaterialIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+    <path d="m3.3 7 8.7 5 8.7-5M12 22V12" />
+  </Svg>
+);
+
+export const ProductionOrderIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 21h18V9l-6 4V9l-6 4V4H3v17z" />
+    <path d="M7 17h2M12 17h2M17 17h2" />
+  </Svg>
+);
+
+export const TraceabilityIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="6" cy="6" r="2.5" />
+    <circle cx="18" cy="12" r="2.5" />
+    <circle cx="6" cy="18" r="2.5" />
+    <path d="M8.3 7.2 15.7 10.8M15.7 13.2 8.3 16.8" />
+  </Svg>
+);
+
 export const ChevronIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="m9 6 6 6-6 6" />
@@ -70,7 +100,11 @@ export const MoonIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const navIcons: Record<IconName, (p: IconProps) => React.ReactElement> = {
+export const navIcons: Record<IconName, (p: IconProps) => ReactElement> = {
   dashboard: DashboardIcon,
   wallet: WalletIcon,
+  notifications: BellIcon,
+  rawMaterial: RawMaterialIcon,
+  productionOrder: ProductionOrderIcon,
+  traceability: TraceabilityIcon,
 };

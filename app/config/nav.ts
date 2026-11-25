@@ -1,4 +1,10 @@
-export type IconName = "dashboard" | "wallet";
+export type IconName =
+  | "dashboard"
+  | "wallet"
+  | "notifications"
+  | "rawMaterial"
+  | "productionOrder"
+  | "traceability";
 
 export type NavLink = {
   label: string;
@@ -33,13 +39,52 @@ export const navSections: NavSection[] = [
           { label: "Contas a receber", href: "/financeiro/contas-a-receber" },
         ],
       },
+      {
+        label: "Notificações",
+        href: "/notificacoes",
+        icon: "notifications",
+        children: [
+          {
+            label: "Todas as notificações",
+            href: "/notificacoes?filtro=todas",
+          },
+          {
+            label: "Alertas não lidos",
+            href: "/notificacoes?filtro=nao-lidas",
+          },
+        ],
+      },
+      {
+        label: "Matéria-Prima",
+        href: "/materia-prima",
+        icon: "rawMaterial",
+        children: [
+          { label: "Cadastro de insumos", href: "/materia-prima" },
+          { label: "Estoque e lotes", href: "/materia-prima/estoque" },
+        ],
+      },
+      {
+        label: "Ordem de Produção",
+        href: "/ordem-producao",
+        icon: "productionOrder",
+        children: [
+          { label: "Ordens de produção", href: "/ordem-producao?view=lista" },
+          { label: "Nova ordem", href: "/ordem-producao?view=nova" },
+        ],
+      },
+      {
+        label: "Rastreabilidade",
+        href: "/rastreabilidade",
+        icon: "traceability",
+      },
     ],
   },
 ];
 
 /** `true` quando `pathname` é `href` ou uma sub-rota dele. */
 export function isActivePath(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`);
+  const cleanHref = href.split("?")[0];
+  return pathname === cleanHref || pathname.startsWith(`${cleanHref}/`);
 }
 
 /** Monta o breadcrumb da topbar a partir da configuração da navegação. */
