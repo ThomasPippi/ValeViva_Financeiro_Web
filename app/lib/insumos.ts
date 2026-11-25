@@ -1,54 +1,49 @@
-export type TipoProduto = "MATERIA_PRIMA" | "COMPONENTE" | "ACABADO";
+// Produtos/insumos do backend Spring (ValeViva_Financeiro).
+// Usa o proxy "/backend" do next.config.ts para não dar erro de CORS.
+
+export type TipoProduto = "MATERIA_PRIMA" | "COMPONENTE" | "PRODUTO_FINAL";
 
 export type Produto = {
   id: number;
+  nome: string;
   codigo: string;
   descricao: string;
-  unidade: string;
   tipo: TipoProduto;
-  precoVenda: number;
-  estoqueMinimo: number;
-  registroAnvisa: string | null;
-  validadeRegistro: string | null;
+  unidade: string;
+  preco: number;
+  quantidade_estoque: number;
+  estoque_minimo: number;
+  registro_anvisa: string | null;
+  vencimento_anvisa: string | null;
+  is_ativo: boolean;
 };
 
-export type CriarProdutoInput = {
-  codigo: string;
-  descricao: string;
-  unidade: string;
-  tipo: TipoProduto;
-  precoVenda: number;
-  estoqueMinimo: number;
-  registroAnvisa?: string;
-  validadeRegistro?: string;
-};
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
-
-async function parseResponse<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const texto = await res.text().catch(() => "");
-    throw new Error(texto || `Erro HTTP ${res.status}`);
-  }
-  return res.json() as Promise<T>;
-}
+export type CriarProdutoInput = Omit<Produto, "id">;
 
 export async function listarProdutos(tipo?: TipoProduto): Promise<Produto[]> {
-  const url = tipo
-    ? `${API_BASE_URL}/api/produtos?tipo=${encodeURIComponent(tipo)}`
-    : `${API_BASE_URL}/api/produtos`;
-  const res = await fetch(url, { cache: "no-store" });
-  return parseResponse<Produto[]>(res);
+  // o backend devolve paginado, então pede uma página grande pra vir tudo
+  const res = await fetch("/backend/produtos?size=1000", { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`Erro HTTP ${res.status}`);
+  }
+  const dados = await res.json();
+  const produtos: Produto[] = dados.content;
+
+  // o backend não filtra por tipo, então filtra aqui
+  if (tipo) {
+    return produtos.filter((p) => p.tipo === tipo);
+  }
+  return produtos;
 }
 
-export async function criarProduto(
-  payload: CriarProdutoInput
-): Promise<Produto> {
-  const res = await fetch(`${API_BASE_URL}/api/produtos`, {
+export async function criarProduto(payload: CriarProdutoInput) {
+  const res = await fetch("/backend/produtos", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  return parseResponse<Produto>(res);
+  if (!res.ok) {
+    const texto = await res.text().catch(() => "");
+    throw new Error(texto || `Erro HTTP ${res.status}`);
+  }
 }

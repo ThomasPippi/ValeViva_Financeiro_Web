@@ -2,6 +2,17 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // Esconde o indicador "N" do Next (e o badge de insights) no modo dev.
+  devIndicators: false,
+  // Repassa /backend/... para a API Spring (evita erro de CORS no navegador)
+  async rewrites() {
+    return [
+      {
+        source: "/backend/:path*",
+        destination: `${process.env.BACKEND_URL ?? "http://localhost:8080"}/:path*`,
+      },
+    ];
+  },
   experimental: {
     agentFeedback: true,
   },

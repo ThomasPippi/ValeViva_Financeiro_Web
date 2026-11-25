@@ -9,8 +9,9 @@ import {
   type StatusQualidade,
 } from "../../lib/estoque";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+// "/backend" é redirecionado para a API Spring no next.config.ts (evita erro de CORS)
+// TODO: endpoints de lote (qualidade) ainda não existem no backend
+const API_BASE_URL = "/backend";
 
 async function atualizarQualidadeLote(
   codigoLote: string,
@@ -24,14 +25,14 @@ async function atualizarQualidadeLote(
     observacao: observacao?.trim() || undefined,
   });
 
-  let res = await fetch(`${API_BASE_URL}/api/lotes/${encoded}/qualidade`, {
+  let res = await fetch(`${API_BASE_URL}/lotes/${encoded}/qualidade`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body,
   });
 
   if (res.status === 405 || res.status === 404) {
-    res = await fetch(`${API_BASE_URL}/api/lotes/${encoded}/qualidade`, {
+    res = await fetch(`${API_BASE_URL}/lotes/${encoded}/qualidade`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body,

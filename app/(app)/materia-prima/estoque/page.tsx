@@ -10,8 +10,8 @@ import {
   type MovimentacaoEstoque,
   type RastreabilidadeLote,
   type SaldoEstoqueItem,
-  type StatusQualidade,
 } from "../../../lib/estoque";
+import { listarProdutos, type Produto } from "../../../lib/insumos";
 
 function isLoteVencido(validade?: string | null): boolean {
   if (!validade) return false;
@@ -52,15 +52,16 @@ export default function EstoqueELotesPage() {
 
   const [loading, setLoading] = useState(true);
 
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+
+  const [entradaProduto, setEntradaProduto] = useState("");
   const [entradaLote, setEntradaLote] = useState("");
   const [entradaQtd, setEntradaQtd] = useState("");
   const [entradaUsuario, setEntradaUsuario] = useState("");
   const [entradaOrigem, setEntradaOrigem] = useState("");
-  const [entradaValidade, setEntradaValidade] = useState("");
-  const [entradaQualidade, setEntradaQualidade] =
-    useState<StatusQualidade>("PENDENTE");
   const [salvandoEntrada, setSalvandoEntrada] = useState(false);
 
+  const [saidaProduto, setSaidaProduto] = useState("");
   const [saidaLote, setSaidaLote] = useState("");
   const [saidaQtd, setSaidaQtd] = useState("");
   const [saidaDestino, setSaidaDestino] = useState("");
@@ -74,15 +75,17 @@ export default function EstoqueELotesPage() {
   const carregarDados = useCallback(async () => {
     setLoading(true);
     try {
-      const [dadosSaldos, dadosMov] = await Promise.all([
+      const [dadosSaldos, dadosMov, dadosProdutos] = await Promise.all([
         listarSaldosEstoque().catch(() => []),
         listarMovimentacoesEstoque({
           inicio: filtroPeriodoInicio || undefined,
           fim: filtroPeriodoFim || undefined,
           produto: filtroProdutoMov.trim() || undefined,
         }).catch(() => []),
+        listarProdutos().catch(() => []),
       ]);
       setSaldos(dadosSaldos);
+      setProdutos(dadosProdutos);
       setMovimentacoes(dadosMov);
     } finally {
       setLoading(false);
@@ -97,23 +100,21 @@ export default function EstoqueELotesPage() {
     e.preventDefault();
 
     const qtdNum = Number(entradaQtd.replace(",", "."));
-    if (!entradaLote.trim() || !entradaUsuario.trim()) return;
+    if (!entradaProduto || !entradaLote.trim() || !entradaUsuario.trim()) return;
     if (Number.isNaN(qtdNum) || qtdNum <= 0) return;
 
     setSalvandoEntrada(true);
     try {
       await registrarEntradaEstoque({
-        codigoLote: entradaLote.trim(),
+        produtoId: Number(entradaProduto),
+        loteId: Number(entradaLote),
         quantidade: qtdNum,
-        usuario: entradaUsuario.trim(),
+        usuarioId: Number(entradaUsuario),
         origemDestino: entradaOrigem.trim() || undefined,
-        validade: entradaValidade || undefined,
-        statusQualidade: entradaQualidade,
       });
       setEntradaLote("");
       setEntradaQtd("");
       setEntradaOrigem("");
-      setEntradaValidade("");
       await carregarDados();
     } catch {
       // Silenciado sem banner de erro
@@ -126,16 +127,17 @@ export default function EstoqueELotesPage() {
     e.preventDefault();
 
     const qtdNum = Number(saidaQtd.replace(",", "."));
-    if (!saidaLote.trim() || !saidaUsuario.trim() || !saidaDestino.trim()) return;
+    if (!saidaProduto || !saidaLote.trim() || !saidaUsuario.trim() || !saidaDestino.trim()) return;
     if (Number.isNaN(qtdNum) || qtdNum <= 0) return;
 
     setSalvandoSaida(true);
     try {
       await registrarExpedicao({
-        codigoLote: saidaLote.trim(),
+        produtoId: Number(saidaProduto),
+        loteId: Number(saidaLote),
         quantidade: qtdNum,
         destino: saidaDestino.trim(),
-        usuario: saidaUsuario.trim(),
+        usuarioId: Number(saidaUsuario),
       });
       setSaidaLote("");
       setSaidaQtd("");
@@ -231,10 +233,33 @@ export default function EstoqueELotesPage() {
         >
           <strong>Entrada em estoque (leitura de lote)</strong>
           <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-            Código do lote (obrigatório)
+            Produto (obrigatório)
+            <select
+              value={entradaProduto}
+              onChange={(e) => setEntradaProduto(e.target.value)}
+              style={{
+                padding: "9px 12px",
+                borderRadius: 8,
+                border: "1px solid rgba(128, 128, 128, 0.35)",
+                background: "transparent",
+                color: "inherit",
+              }}
+            >
+              <option value="">Selecione...</option>
+              {produtos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.codigo} - {p.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+            Número do lote (obrigatório)
             <input
-              type="text"
-              placeholder="Bipar ou digitar código do lote"
+              type="number"
+              min="1"
+              placeholder="Ex.: 1001"
               value={entradaLote}
               onChange={(e) => setEntradaLote(e.target.value)}
               style={{
@@ -267,10 +292,11 @@ export default function EstoqueELotesPage() {
             </label>
 
             <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-              Usuário (obrigatório)
+              ID do usuário (obrigatório)
               <input
-                type="text"
-                placeholder="Operador / responsável"
+                type="number"
+                min="1"
+                placeholder="ID do funcionário"
                 value={entradaUsuario}
                 onChange={(e) => setEntradaUsuario(e.target.value)}
                 style={{
@@ -281,46 +307,6 @@ export default function EstoqueELotesPage() {
                   color: "inherit",
                 }}
               />
-            </label>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-              Validade do lote
-              <input
-                type="date"
-                value={entradaValidade}
-                onChange={(e) => setEntradaValidade(e.target.value)}
-                style={{
-                  padding: "9px 12px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(128, 128, 128, 0.35)",
-                  background: "transparent",
-                  color: "inherit",
-                }}
-              />
-            </label>
-
-            <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-              Status qualidade inicial
-              <select
-                value={entradaQualidade}
-                onChange={(e) =>
-                  setEntradaQualidade(e.target.value as StatusQualidade)
-                }
-                style={{
-                  padding: "9px 12px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(128, 128, 128, 0.35)",
-                  background: "transparent",
-                  color: "inherit",
-                }}
-              >
-                <option value="PENDENTE">PENDENTE</option>
-                <option value="APROVADO">APROVADO</option>
-                <option value="REPROVADO">REPROVADO</option>
-                <option value="BLOQUEADO">BLOQUEADO</option>
-              </select>
             </label>
           </div>
 
@@ -369,10 +355,33 @@ export default function EstoqueELotesPage() {
         >
           <strong>Expedição / Saída (bipagem de lote)</strong>
           <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-            Código do lote (obrigatório)
+            Produto (obrigatório)
+            <select
+              value={saidaProduto}
+              onChange={(e) => setSaidaProduto(e.target.value)}
+              style={{
+                padding: "9px 12px",
+                borderRadius: 8,
+                border: "1px solid rgba(128, 128, 128, 0.35)",
+                background: "transparent",
+                color: "inherit",
+              }}
+            >
+              <option value="">Selecione...</option>
+              {produtos.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.codigo} - {p.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+            Número do lote (obrigatório)
             <input
-              type="text"
-              placeholder="Bipar ou digitar código do lote"
+              type="number"
+              min="1"
+              placeholder="Ex.: 1001"
               value={saidaLote}
               onChange={(e) => setSaidaLote(e.target.value)}
               style={{
@@ -405,10 +414,11 @@ export default function EstoqueELotesPage() {
             </label>
 
             <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-              Usuário (obrigatório)
+              ID do usuário (obrigatório)
               <input
-                type="text"
-                placeholder="Operador da expedição"
+                type="number"
+                min="1"
+                placeholder="ID do funcionário"
                 value={saidaUsuario}
                 onChange={(e) => setSaidaUsuario(e.target.value)}
                 style={{
@@ -440,8 +450,7 @@ export default function EstoqueELotesPage() {
           </label>
 
           <p style={{ margin: 0, fontSize: 12, opacity: 0.7 }}>
-            A API bloqueia (422) lotes vencidos, não aprovados pela qualidade ou
-            com registro ANVISA vencido.
+            A API bloqueia a saída se o lote não tiver saldo suficiente.
           </p>
 
           <button

@@ -11,7 +11,7 @@ import {
 const TIPO_LABEL: Record<TipoProduto, string> = {
   MATERIA_PRIMA: "Matéria-prima",
   COMPONENTE: "Componente",
-  ACABADO: "Produto acabado",
+  PRODUTO_FINAL: "Produto final",
 };
 
 function isRegistroVigente(validadeRegistro: string | null): boolean | null {
@@ -45,6 +45,7 @@ export default function CadastroInsumosPage() {
   const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
 
+  const [nome, setNome] = useState("");
   const [codigo, setCodigo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [unidade, setUnidade] = useState("un");
@@ -75,23 +76,28 @@ export default function CadastroInsumosPage() {
     const precoNum = Number(precoVenda.replace(",", "."));
     const estoqueMinNum = Number(estoqueMinimo.replace(",", "."));
 
-    if (!codigo.trim() || !descricao.trim() || !unidade.trim()) return;
+    if (!nome.trim() || !codigo.trim() || !descricao.trim() || !unidade.trim()) return;
     if (Number.isNaN(precoNum) || precoNum < 0) return;
     if (Number.isNaN(estoqueMinNum) || estoqueMinNum < 0) return;
 
     setSalvando(true);
     try {
-      const criado = await criarProduto({
+      await criarProduto({
+        nome: nome.trim(),
         codigo: codigo.trim(),
         descricao: descricao.trim(),
         unidade: unidade.trim(),
         tipo,
-        precoVenda: precoNum,
-        estoqueMinimo: estoqueMinNum,
-        registroAnvisa: registroAnvisa.trim() || undefined,
-        validadeRegistro: validadeRegistro || undefined,
+        preco: precoNum,
+        quantidade_estoque: 0,
+        estoque_minimo: estoqueMinNum,
+        registro_anvisa: registroAnvisa.trim() || null,
+        vencimento_anvisa: validadeRegistro || null,
+        is_ativo: true,
       });
-      setProdutos((prev) => [criado, ...prev]);
+      // o backend não devolve o produto criado, então recarrega a lista
+      carregar();
+      setNome("");
       setCodigo("");
       setDescricao("");
       setPrecoVenda("");
@@ -110,9 +116,10 @@ export default function CadastroInsumosPage() {
     const bateTipo = filtroTipo === "TODOS" || item.tipo === filtroTipo;
     const bateBusca =
       !termo ||
-      item.codigo.toLowerCase().includes(termo) ||
-      item.descricao.toLowerCase().includes(termo) ||
-      (item.registroAnvisa ?? "").toLowerCase().includes(termo);
+      (item.nome ?? "").toLowerCase().includes(termo) ||
+      (item.codigo ?? "").toLowerCase().includes(termo) ||
+      (item.descricao ?? "").toLowerCase().includes(termo) ||
+      (item.registro_anvisa ?? "").toLowerCase().includes(termo);
     return bateTipo && bateBusca;
   });
 
@@ -164,6 +171,23 @@ export default function CadastroInsumosPage() {
         }}
       >
         <strong style={{ gridColumn: "1 / -1" }}>Novo item / insumo</strong>
+
+        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+          Nome
+          <input
+            type="text"
+            placeholder="Ex.: Resina de polipropileno"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            style={{
+              padding: "9px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(128, 128, 128, 0.35)",
+              background: "transparent",
+              color: "inherit",
+            }}
+          />
+        </label>
 
         <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
           Código
@@ -221,7 +245,7 @@ export default function CadastroInsumosPage() {
           >
             <option value="MATERIA_PRIMA">Matéria-prima</option>
             <option value="COMPONENTE">Componente</option>
-            <option value="ACABADO">Produto acabado</option>
+            <option value="PRODUTO_FINAL">Produto final</option>
           </select>
         </label>
 
@@ -349,7 +373,7 @@ export default function CadastroInsumosPage() {
             [
               ["MATERIA_PRIMA", "Matéria-prima"],
               ["COMPONENTE", "Componentes"],
-              ["ACABADO", "Acabados"],
+              ["PRODUTO_FINAL", "Produtos finais"],
               ["TODOS", "Todos"],
             ] as const
           ).map(([chave, rotulo]) => (
@@ -408,6 +432,7 @@ export default function CadastroInsumosPage() {
                 }}
               >
                 <th style={{ padding: "10px 8px" }}>Código</th>
+                <th style={{ padding: "10px 8px" }}>Nome</th>
                 <th style={{ padding: "10px 8px" }}>Descrição</th>
                 <th style={{ padding: "10px 8px" }}>Tipo</th>
                 <th style={{ padding: "10px 8px" }}>Un.</th>
@@ -418,7 +443,7 @@ export default function CadastroInsumosPage() {
             </thead>
             <tbody>
               {itensFiltrados.map((item) => {
-                const vigente = isRegistroVigente(item.validadeRegistro);
+                const vigente = isRegistroVigente(item.vencimento_anvisa);
                 return (
                   <tr
                     key={item.id}
@@ -429,22 +454,23 @@ export default function CadastroInsumosPage() {
                     <td style={{ padding: "10px 8px", fontWeight: 600 }}>
                       {item.codigo}
                     </td>
+                    <td style={{ padding: "10px 8px" }}>{item.nome}</td>
                     <td style={{ padding: "10px 8px" }}>{item.descricao}</td>
                     <td style={{ padding: "10px 8px" }}>
                       {TIPO_LABEL[item.tipo] ?? item.tipo}
                     </td>
                     <td style={{ padding: "10px 8px" }}>{item.unidade}</td>
                     <td style={{ padding: "10px 8px" }}>
-                      {formatarMoeda(item.precoVenda)}
+                      {formatarMoeda(item.preco)}
                     </td>
                     <td style={{ padding: "10px 8px" }}>
-                      {item.estoqueMinimo}
+                      {item.estoque_minimo}
                     </td>
                     <td style={{ padding: "10px 8px" }}>
-                      {item.registroAnvisa ? (
+                      {item.registro_anvisa ? (
                         <span>
-                          {item.registroAnvisa} (
-                          {formatarData(item.validadeRegistro)})
+                          {item.registro_anvisa} (
+                          {formatarData(item.vencimento_anvisa)})
                           {vigente === false && (
                             <strong style={{ color: "#ef4444" }}>
                               {" "}

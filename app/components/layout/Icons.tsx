@@ -100,6 +100,29 @@ export const MoonIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const ProductsIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M20 7 12 3 4 7v10l8 4 8-4z" />
+    <path d="m4 7 8 4 8-4M12 11v10" />
+  </Svg>
+);
+
+export const SuppliersIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M1 3h13v13H1zM14 8h4l3 3v5h-7z" />
+    <circle cx="5.5" cy="18.5" r="2" />
+    <circle cx="17.5" cy="18.5" r="2" />
+  </Svg>
+);
+
+export const PurchaseOrdersIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="9" cy="20" r="1.5" />
+    <circle cx="18" cy="20" r="1.5" />
+    <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L22 7H6" />
+  </Svg>
+);
+
 export const navIcons: Record<IconName, (p: IconProps) => ReactElement> = {
   dashboard: DashboardIcon,
   wallet: WalletIcon,
@@ -107,4 +130,7 @@ export const navIcons: Record<IconName, (p: IconProps) => ReactElement> = {
   rawMaterial: RawMaterialIcon,
   productionOrder: ProductionOrderIcon,
   traceability: TraceabilityIcon,
+  products: ProductsIcon,
+  suppliers: SuppliersIcon,
+  purchaseOrders: PurchaseOrdersIcon,
 };

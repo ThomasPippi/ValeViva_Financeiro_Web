@@ -36,8 +36,8 @@ export type EmitirOrdemInput = {
   prioridade: number;
 };
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+// "/backend" é redirecionado para a API Spring no next.config.ts (evita erro de CORS)
+const API_BASE_URL = "/backend";
 
 async function parseResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -50,18 +50,19 @@ async function parseResponse<T>(res: Response): Promise<T> {
 export async function listarOrdensProducao(
   status?: StatusOrdem | "TODAS"
 ): Promise<OrdemProducao[]> {
-  const url =
-    status && status !== "TODAS"
-      ? `${API_BASE_URL}/api/ordens?status=${encodeURIComponent(status)}`
-      : `${API_BASE_URL}/api/ordens`;
-  const res = await fetch(url, { cache: "no-store" });
-  return parseResponse<OrdemProducao[]>(res);
+  const res = await fetch(`${API_BASE_URL}/ordens-producao`, { cache: "no-store" });
+  const ordens = await parseResponse<OrdemProducao[]>(res);
+  // o backend não filtra por status, então filtra aqui
+  if (status && status !== "TODAS") {
+    return ordens.filter((ordem) => ordem.status === status);
+  }
+  return ordens;
 }
 
 export async function emitirOrdemProducao(
   payload: EmitirOrdemInput
 ): Promise<OrdemProducao> {
-  const res = await fetch(`${API_BASE_URL}/api/ordens`, {
+  const res = await fetch(`${API_BASE_URL}/ordens-producao`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -73,7 +74,8 @@ export async function confirmarMateriaisOrdem(
   id: number
 ): Promise<OrdemProducao> {
   const res = await fetch(
-    `${API_BASE_URL}/api/ordens/${id}/confirmar-materiais`,
+    // TODO: endpoint ainda não existe no backend (precisa da lista de materiais do produto)
+    `${API_BASE_URL}/ordens-producao/${id}/confirmar-materiais`,
     {
       method: "POST",
     }

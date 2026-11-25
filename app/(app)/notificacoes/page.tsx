@@ -9,29 +9,30 @@ export type Notificacao = {
   titulo?: string;
   mensagem: string;
   lida: boolean;
-  dataHora?: string;
+  dataEnvio?: string;
 };
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+// "/backend" é redirecionado para a API Spring no next.config.ts (evita erro de CORS)
+const API_BASE_URL = "/backend";
 
 async function buscarNotificacoes(
   filtro: "todas" | "nao-lidas"
 ): Promise<Notificacao[]> {
-  const url =
-    filtro === "nao-lidas"
-      ? `${API_BASE_URL}/api/notificacoes?lida=false`
-      : `${API_BASE_URL}/api/notificacoes`;
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(`${API_BASE_URL}/notificacoes`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
   }
-  return res.json() as Promise<Notificacao[]>;
+  const lista: Notificacao[] = await res.json();
+  // o backend não filtra, então filtra as não lidas aqui
+  if (filtro === "nao-lidas") {
+    return lista.filter((item) => !item.lida);
+  }
+  return lista;
 }
 
 async function marcarComoLida(id: number): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/api/notificacoes/${id}/lida`, {
-    method: "PATCH",
+  const res = await fetch(`${API_BASE_URL}/notificacoes/${id}/ler`, {
+    method: "PUT",
   });
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
@@ -194,7 +195,7 @@ function NotificacoesConteudo() {
               <div style={{ display: "grid", gap: 4 }}>
                 <div style={{ fontSize: 12, opacity: 0.75 }}>
                   <strong>{item.tipo ?? "ALERTA"}</strong> •{" "}
-                  {formatarDataHora(item.dataHora)} •{" "}
+                  {formatarDataHora(item.dataEnvio)} •{" "}
                   {item.lida ? "Lida" : "Não lida"}
                 </div>
                 {item.titulo && <strong>{item.titulo}</strong>}

@@ -20,14 +20,14 @@ export type RastreabilidadeLote = {
   destinos?: string[];
 };
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+// "/backend" é redirecionado para a API Spring no next.config.ts (evita erro de CORS)
+const API_BASE_URL = "/backend";
 
 export async function buscarRastreabilidadeLote(
   codigoLote: string
 ): Promise<RastreabilidadeLote> {
   const res = await fetch(
-    `${API_BASE_URL}/api/lotes/${encodeURIComponent(codigoLote)}/rastreabilidade`,
+    `${API_BASE_URL}/lotes/${encodeURIComponent(codigoLote)}/rastreabilidade`,
     { cache: "no-store" }
   );
   if (!res.ok) {

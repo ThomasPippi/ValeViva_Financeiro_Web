@@ -4,7 +4,10 @@ export type IconName =
   | "notifications"
   | "rawMaterial"
   | "productionOrder"
-  | "traceability";
+  | "traceability"
+  | "products"
+  | "suppliers"
+  | "purchaseOrders";
 
 export type NavLink = {
   label: string;
@@ -30,15 +33,6 @@ export const navSections: NavSection[] = [
   {
     title: "Gestão",
     items: [
-      {
-        label: "Financeiro",
-        href: "/financeiro",
-        icon: "wallet",
-        children: [
-          { label: "Contas a pagar", href: "/financeiro/contas-a-pagar" },
-          { label: "Contas a receber", href: "/financeiro/contas-a-receber" },
-        ],
-      },
       {
         label: "Notificações",
         href: "/notificacoes",
@@ -77,6 +71,14 @@ export const navSections: NavSection[] = [
         href: "/rastreabilidade",
         icon: "traceability",
       },
+    ],
+  },
+  {
+    title: "Compras",
+    items: [
+      { label: "Produtos", href: "/produtos", icon: "products" },
+      { label: "Fornecedores", href: "/fornecedores", icon: "suppliers" },
+      { label: "Pedidos de compra", href: "/pedidos-compra", icon: "purchaseOrders" },
     ],
   },
 ];

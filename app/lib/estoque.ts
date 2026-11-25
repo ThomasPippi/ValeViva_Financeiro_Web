@@ -33,20 +33,21 @@ export type MovimentacaoEstoque = {
   origemDestino?: string | null;
 };
 
+// o backend identifica o lote pelo número (loteId) e o usuário pelo id
 export type EntradaEstoqueInput = {
-  codigoLote: string;
+  produtoId: number;
+  loteId: number;
   quantidade: number;
-  usuario: string;
+  usuarioId: number;
   origemDestino?: string;
-  validade?: string;
-  statusQualidade?: StatusQualidade;
 };
 
 export type ExpedicaoInput = {
-  codigoLote: string;
+  produtoId: number;
+  loteId: number;
   quantidade: number;
   destino: string;
-  usuario: string;
+  usuarioId: number;
 };
 
 export type RastreabilidadeLote = {
@@ -61,8 +62,8 @@ export type RastreabilidadeLote = {
   destinos?: string[];
 };
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+// "/backend" é redirecionado para a API Spring no next.config.ts (evita erro de CORS)
+const API_BASE_URL = "/backend";
 
 async function parseResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -73,7 +74,7 @@ async function parseResponse<T>(res: Response): Promise<T> {
 }
 
 export async function listarSaldosEstoque(): Promise<SaldoEstoqueItem[]> {
-  const res = await fetch(`${API_BASE_URL}/api/estoque/saldos`, {
+  const res = await fetch(`${API_BASE_URL}/estoque/saldos`, {
     cache: "no-store",
   });
   return parseResponse<SaldoEstoqueItem[]>(res);
@@ -91,8 +92,8 @@ export async function listarMovimentacoesEstoque(params?: {
 
   const qs = search.toString();
   const url = qs
-    ? `${API_BASE_URL}/api/estoque/movimentacoes?${qs}`
-    : `${API_BASE_URL}/api/estoque/movimentacoes`;
+    ? `${API_BASE_URL}/estoque/movimentacoes?${qs}`
+    : `${API_BASE_URL}/estoque/movimentacoes`;
 
   const res = await fetch(url, { cache: "no-store" });
   return parseResponse<MovimentacaoEstoque[]>(res);
@@ -101,7 +102,7 @@ export async function listarMovimentacoesEstoque(params?: {
 export async function registrarEntradaEstoque(
   payload: EntradaEstoqueInput
 ): Promise<SaldoEstoqueItem | MovimentacaoEstoque> {
-  const res = await fetch(`${API_BASE_URL}/api/estoque/entradas`, {
+  const res = await fetch(`${API_BASE_URL}/estoque/entradas`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -112,7 +113,7 @@ export async function registrarEntradaEstoque(
 export async function registrarExpedicao(
   payload: ExpedicaoInput
 ): Promise<MovimentacaoEstoque | Record<string, unknown>> {
-  const res = await fetch(`${API_BASE_URL}/api/expedicoes`, {
+  const res = await fetch(`${API_BASE_URL}/expedicoes`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -124,7 +125,8 @@ export async function consultarRastreabilidadeLote(
   codigoLote: string
 ): Promise<RastreabilidadeLote> {
   const res = await fetch(
-    `${API_BASE_URL}/api/lotes/${encodeURIComponent(codigoLote)}/rastreabilidade`,
+    // TODO: endpoint de rastreabilidade ainda não existe no backend
+    `${API_BASE_URL}/lotes/${encodeURIComponent(codigoLote)}/rastreabilidade`,
     { cache: "no-store" }
   );
   return parseResponse<RastreabilidadeLote>(res);

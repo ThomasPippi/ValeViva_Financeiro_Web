@@ -11,8 +11,8 @@ export type CriarNotificacaoInput = {
   mensagem: string;
 };
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+// "/backend" é redirecionado para a API Spring no next.config.ts (evita erro de CORS)
+const API_BASE_URL = "/backend";
 
 async function parseResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
