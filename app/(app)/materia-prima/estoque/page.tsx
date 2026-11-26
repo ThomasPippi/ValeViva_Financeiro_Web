@@ -2,183 +2,202 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
-  consultarRastreabilidadeLote,
-  listarMovimentacoesEstoque,
-  listarSaldosEstoque,
-  registrarEntradaEstoque,
-  registrarExpedicao,
-  type MovimentacaoEstoque,
-  type RastreabilidadeLote,
-  type SaldoEstoqueItem,
-} from "../../../lib/estoque";
-import { listarProdutos, type Produto } from "../../../lib/insumos";
+  atualizarProduto,
+  criarProduto,
+  excluirProduto,
+  listarProdutos,
+  type Produto,
+  type TipoProduto,
+} from "../../../lib/insumos";
 
-function isLoteVencido(validade?: string | null): boolean {
-  if (!validade) return false;
+const TIPO_LABEL: Record<TipoProduto, string> = {
+  MATERIA_PRIMA: "Matéria-prima",
+  COMPONENTE: "Componente",
+  PRODUTO_FINAL: "Produto final",
+};
+
+function isRegistroVigente(validadeRegistro: string | null): boolean | null {
+  if (!validadeRegistro) return null;
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
-  const dataValidade = new Date(`${validade.slice(0, 10)}T00:00:00`);
-  if (Number.isNaN(dataValidade.getTime())) return false;
-  return dataValidade < hoje;
+  const validade = new Date(`${validadeRegistro.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(validade.getTime())) return null;
+  return validade >= hoje;
 }
 
-function formatarData(valor?: string | null): string {
-  if (!valor) return "—";
-  const d = new Date(`${valor.slice(0, 10)}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return valor;
+function formatarMoeda(valor: number): string {
+  return Number(valor || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function formatarData(data: string | null): string {
+  if (!data) return "—";
+  const d = new Date(`${data.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return data;
   return d.toLocaleDateString("pt-BR");
 }
 
-function formatarDataHora(valor?: string | null): string {
-  if (!valor) return "—";
-  const d = new Date(valor);
-  if (Number.isNaN(d.getTime())) return valor;
-  return d.toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-export default function EstoqueELotesPage() {
-  const [saldos, setSaldos] = useState<SaldoEstoqueItem[]>([]);
-  const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([]);
-  const [buscaLote, setBuscaLote] = useState("");
-  const [filtroPeriodoInicio, setFiltroPeriodoInicio] = useState("");
-  const [filtroPeriodoFim, setFiltroPeriodoFim] = useState("");
-  const [filtroProdutoMov, setFiltroProdutoMov] = useState("");
-
+export default function CadastroInsumosPage() {
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [filtroTipo, setFiltroTipo] = useState<"TODOS" | TipoProduto>(
+    "MATERIA_PRIMA"
+  );
+  const [busca, setBusca] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [quantidadeEstoqueAtual, setQuantidadeEstoqueAtual] = useState(0);
+  const [isAtivoAtual, setIsAtivoAtual] = useState(true);
 
-  const [entradaProduto, setEntradaProduto] = useState("");
-  const [entradaLote, setEntradaLote] = useState("");
-  const [entradaQtd, setEntradaQtd] = useState("");
-  const [entradaUsuario, setEntradaUsuario] = useState("");
-  const [entradaOrigem, setEntradaOrigem] = useState("");
-  const [salvandoEntrada, setSalvandoEntrada] = useState(false);
+  const [nome, setNome] = useState("");
+  const [codigo, setCodigo] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [unidade, setUnidade] = useState("un");
+  const [tipo, setTipo] = useState<TipoProduto>("MATERIA_PRIMA");
+  const [precoVenda, setPrecoVenda] = useState("");
+  const [estoqueMinimo, setEstoqueMinimo] = useState("");
+  const [registroAnvisa, setRegistroAnvisa] = useState("");
+  const [validadeRegistro, setValidadeRegistro] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const [excluindoId, setExcluindoId] = useState<number | null>(null);
+  const [erroForm, setErroForm] = useState<string | null>(null);
 
-  const [saidaProduto, setSaidaProduto] = useState("");
-  const [saidaLote, setSaidaLote] = useState("");
-  const [saidaQtd, setSaidaQtd] = useState("");
-  const [saidaDestino, setSaidaDestino] = useState("");
-  const [saidaUsuario, setSaidaUsuario] = useState("");
-  const [salvandoSaida, setSalvandoSaida] = useState(false);
-
-  const [codigoRastreio, setCodigoRastreio] = useState("");
-  const [rastreio, setRastreio] = useState<RastreabilidadeLote | null>(null);
-  const [buscandoRastreio, setBuscandoRastreio] = useState(false);
-
-  const carregarDados = useCallback(async () => {
+  const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const [dadosSaldos, dadosMov, dadosProdutos] = await Promise.all([
-        listarSaldosEstoque().catch(() => []),
-        listarMovimentacoesEstoque({
-          inicio: filtroPeriodoInicio || undefined,
-          fim: filtroPeriodoFim || undefined,
-          produto: filtroProdutoMov.trim() || undefined,
-        }).catch(() => []),
-        listarProdutos().catch(() => []),
-      ]);
-      setSaldos(dadosSaldos);
-      setProdutos(dadosProdutos);
-      setMovimentacoes(dadosMov);
+      const dados = await listarProdutos().catch(() => []);
+      setProdutos(dados);
     } finally {
       setLoading(false);
     }
-  }, [filtroPeriodoInicio, filtroPeriodoFim, filtroProdutoMov]);
+  }, []);
 
   useEffect(() => {
-    carregarDados();
-  }, [carregarDados]);
+    carregar();
+  }, [carregar]);
 
-  async function handleEntrada(e: FormEvent) {
-    e.preventDefault();
-
-    const qtdNum = Number(entradaQtd.replace(",", "."));
-    if (!entradaProduto || !entradaLote.trim() || !entradaUsuario.trim()) return;
-    if (Number.isNaN(qtdNum) || qtdNum <= 0) return;
-
-    setSalvandoEntrada(true);
-    try {
-      await registrarEntradaEstoque({
-        produtoId: Number(entradaProduto),
-        loteId: Number(entradaLote),
-        quantidade: qtdNum,
-        usuarioId: Number(entradaUsuario),
-        origemDestino: entradaOrigem.trim() || undefined,
-      });
-      setEntradaLote("");
-      setEntradaQtd("");
-      setEntradaOrigem("");
-      await carregarDados();
-    } catch {
-      // Silenciado sem banner de erro
-    } finally {
-      setSalvandoEntrada(false);
-    }
+  function limparFormulario() {
+    setEditandoId(null);
+    setQuantidadeEstoqueAtual(0);
+    setIsAtivoAtual(true);
+    setNome("");
+    setCodigo("");
+    setDescricao("");
+    setUnidade("un");
+    setTipo("MATERIA_PRIMA");
+    setPrecoVenda("");
+    setEstoqueMinimo("");
+    setRegistroAnvisa("");
+    setValidadeRegistro("");
+    setErroForm(null);
   }
 
-  async function handleExpedicao(e: FormEvent) {
-    e.preventDefault();
-
-    const qtdNum = Number(saidaQtd.replace(",", "."));
-    if (!saidaProduto || !saidaLote.trim() || !saidaUsuario.trim() || !saidaDestino.trim()) return;
-    if (Number.isNaN(qtdNum) || qtdNum <= 0) return;
-
-    setSalvandoSaida(true);
-    try {
-      await registrarExpedicao({
-        produtoId: Number(saidaProduto),
-        loteId: Number(saidaLote),
-        quantidade: qtdNum,
-        destino: saidaDestino.trim(),
-        usuarioId: Number(saidaUsuario),
-      });
-      setSaidaLote("");
-      setSaidaQtd("");
-      setSaidaDestino("");
-      await carregarDados();
-    } catch {
-      // Silenciado sem banner de erro
-    } finally {
-      setSalvandoSaida(false);
-    }
-  }
-
-  async function handleRastrear(e: FormEvent) {
-    e.preventDefault();
-    if (!codigoRastreio.trim()) return;
-
-    setBuscandoRastreio(true);
-    try {
-      const resultado = await consultarRastreabilidadeLote(
-        codigoRastreio.trim()
-      );
-      setRastreio(resultado);
-    } catch {
-      setRastreio(null);
-    } finally {
-      setBuscandoRastreio(false);
-    }
-  }
-
-  const termoLote = buscaLote.trim().toLowerCase();
-  const saldosFiltrados = saldos.filter((item) => {
-    if (!termoLote) return true;
-    return (
-      item.codigoLote.toLowerCase().includes(termoLote) ||
-      (item.codigoProduto ?? "").toLowerCase().includes(termoLote) ||
-      (item.descricaoProduto ?? "").toLowerCase().includes(termoLote)
+  function handleIniciarEdicao(item: Produto) {
+    setErroForm(null);
+    setEditandoId(item.id);
+    setQuantidadeEstoqueAtual(item.quantidade_estoque ?? 0);
+    setIsAtivoAtual(item.is_ativo ?? true);
+    setNome(item.nome ?? "");
+    setCodigo(item.codigo ?? "");
+    setDescricao(item.descricao ?? "");
+    setUnidade(item.unidade ?? "un");
+    setTipo(item.tipo ?? "MATERIA_PRIMA");
+    setPrecoVenda(String(item.preco ?? ""));
+    setEstoqueMinimo(String(item.estoque_minimo ?? ""));
+    setRegistroAnvisa(item.registro_anvisa ?? "");
+    setValidadeRegistro(
+      item.vencimento_anvisa ? item.vencimento_anvisa.slice(0, 10) : ""
     );
+  }
+
+  async function handleExcluir(item: Produto) {
+    setErroForm(null);
+    if (!window.confirm(`Excluir o item ${item.codigo} (${item.nome})?`)) return;
+
+    setExcluindoId(item.id);
+    try {
+      await excluirProduto(item.id);
+      if (editandoId === item.id) {
+        limparFormulario();
+      }
+      await carregar();
+    } catch (err) {
+      setErroForm(
+        err instanceof Error ? err.message : "Erro ao excluir insumo."
+      );
+    } finally {
+      setExcluindoId(null);
+    }
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setErroForm(null);
+
+    const precoNum = Number(precoVenda.replace(",", "."));
+    const estoqueMinNum = Number(estoqueMinimo.replace(",", "."));
+
+    if (!nome.trim() || !codigo.trim() || !descricao.trim() || !unidade.trim()) {
+      setErroForm("Preencha nome, código, descrição e unidade.");
+      return;
+    }
+    if (Number.isNaN(precoNum) || precoNum < 0) {
+      setErroForm("Informe um preço/valor unitário válido.");
+      return;
+    }
+    if (Number.isNaN(estoqueMinNum) || estoqueMinNum < 0) {
+      setErroForm("Informe um estoque mínimo válido.");
+      return;
+    }
+
+    const payload = {
+      nome: nome.trim(),
+      codigo: codigo.trim(),
+      descricao: descricao.trim(),
+      unidade: unidade.trim(),
+      tipo,
+      preco: precoNum,
+      quantidade_estoque: editandoId !== null ? quantidadeEstoqueAtual : 0,
+      estoque_minimo: estoqueMinNum,
+      registro_anvisa: registroAnvisa.trim() || null,
+      vencimento_anvisa: validadeRegistro || null,
+      is_ativo: editandoId !== null ? isAtivoAtual : true,
+    };
+
+    setSalvando(true);
+    try {
+      if (editandoId !== null) {
+        await atualizarProduto(editandoId, payload);
+      } else {
+        await criarProduto(payload);
+      }
+      limparFormulario();
+      await carregar();
+    } catch (err) {
+      setErroForm(
+        err instanceof Error ? err.message : "Erro ao salvar insumo."
+      );
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  const termo = busca.trim().toLowerCase();
+  const itensFiltrados = produtos.filter((item) => {
+    const bateTipo = filtroTipo === "TODOS" || item.tipo === filtroTipo;
+    const bateBusca =
+      !termo ||
+      (item.nome ?? "").toLowerCase().includes(termo) ||
+      (item.codigo ?? "").toLowerCase().includes(termo) ||
+      (item.descricao ?? "").toLowerCase().includes(termo) ||
+      (item.registro_anvisa ?? "").toLowerCase().includes(termo);
+    return bateTipo && bateBusca;
   });
 
   return (
-    <section style={{ padding: 24, maxWidth: 1180, margin: "0 auto" }}>
+    <section style={{ padding: 24, maxWidth: 1120, margin: "0 auto" }}>
       <header
         style={{
           display: "flex",
@@ -190,16 +209,15 @@ export default function EstoqueELotesPage() {
         }}
       >
         <div>
-          <h1 style={{ margin: 0, fontSize: 24 }}>Estoque e lotes</h1>
+          <h1 style={{ margin: 0, fontSize: 24 }}>Cadastro de insumos</h1>
           <p style={{ margin: "4px 0 0", opacity: 0.75, fontSize: 14 }}>
-            Saldos por lote, leitura de entrada/expedição, conformidade ANVISA
-            e rastreabilidade (RF22, RF23, RN06, RN07, RN14, RN16)
+            Matérias-primas, componentes e produtos acabados (RF22 / RN16)
           </p>
         </div>
 
         <button
           type="button"
-          onClick={carregarDados}
+          onClick={carregar}
           disabled={loading}
           style={{
             padding: "8px 14px",
@@ -209,375 +227,378 @@ export default function EstoqueELotesPage() {
             cursor: "pointer",
           }}
         >
-          {loading ? "Atualizando..." : "Atualizar dados"}
+          {loading ? "Atualizando..." : "Atualizar lista"}
         </button>
       </header>
 
-      <div
+      <form
+        onSubmit={handleSubmit}
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
-          gap: 16,
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: 12,
+          padding: 16,
+          borderRadius: 12,
+          border: "1px solid rgba(128, 128, 128, 0.25)",
           marginBottom: 24,
         }}
       >
-        <form
-          onSubmit={handleEntrada}
-          style={{
-            display: "grid",
-            gap: 10,
-            padding: 16,
-            borderRadius: 12,
-            border: "1px solid rgba(128, 128, 128, 0.25)",
-          }}
-        >
-          <strong>Entrada em estoque (leitura de lote)</strong>
-          <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-            Produto (obrigatório)
-            <select
-              value={entradaProduto}
-              onChange={(e) => setEntradaProduto(e.target.value)}
-              style={{
-                padding: "9px 12px",
-                borderRadius: 8,
-                border: "1px solid rgba(128, 128, 128, 0.35)",
-                background: "transparent",
-                color: "inherit",
-              }}
-            >
-              <option value="">Selecione...</option>
-              {produtos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.codigo} - {p.nome}
-                </option>
-              ))}
-            </select>
-          </label>
+        <strong style={{ gridColumn: "1 / -1" }}>
+          {editandoId !== null
+            ? `Editando item #${editandoId}`
+            : "Novo item / insumo"}
+        </strong>
 
-          <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-            Número do lote (obrigatório)
-            <input
-              type="number"
-              min="1"
-              placeholder="Ex.: 1001"
-              value={entradaLote}
-              onChange={(e) => setEntradaLote(e.target.value)}
-              style={{
-                padding: "9px 12px",
-                borderRadius: 8,
-                border: "1px solid rgba(128, 128, 128, 0.35)",
-                background: "transparent",
-                color: "inherit",
-              }}
-            />
-          </label>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-              Quantidade
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="Ex.: 500"
-                value={entradaQtd}
-                onChange={(e) => setEntradaQtd(e.target.value)}
-                style={{
-                  padding: "9px 12px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(128, 128, 128, 0.35)",
-                  background: "transparent",
-                  color: "inherit",
-                }}
-              />
-            </label>
-
-            <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-              ID do usuário (obrigatório)
-              <input
-                type="number"
-                min="1"
-                placeholder="ID do funcionário"
-                value={entradaUsuario}
-                onChange={(e) => setEntradaUsuario(e.target.value)}
-                style={{
-                  padding: "9px 12px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(128, 128, 128, 0.35)",
-                  background: "transparent",
-                  color: "inherit",
-                }}
-              />
-            </label>
-          </div>
-
-          <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-            Origem / Fornecedor / Ordem
-            <input
-              type="text"
-              placeholder="Ex.: Pedido #102 ou OP-2026-01"
-              value={entradaOrigem}
-              onChange={(e) => setEntradaOrigem(e.target.value)}
-              style={{
-                padding: "9px 12px",
-                borderRadius: 8,
-                border: "1px solid rgba(128, 128, 128, 0.35)",
-                background: "transparent",
-                color: "inherit",
-              }}
-            />
-          </label>
-
-          <button
-            type="submit"
-            disabled={salvandoEntrada}
-            style={{
-              padding: "10px 16px",
-              borderRadius: 8,
-              border: "none",
-              fontWeight: 600,
-              cursor: "pointer",
-              marginTop: 4,
-            }}
-          >
-            {salvandoEntrada ? "Registrando entrada..." : "Registrar entrada"}
-          </button>
-        </form>
-
-        <form
-          onSubmit={handleExpedicao}
-          style={{
-            display: "grid",
-            gap: 10,
-            padding: 16,
-            borderRadius: 12,
-            border: "1px solid rgba(128, 128, 128, 0.25)",
-          }}
-        >
-          <strong>Expedição / Saída (bipagem de lote)</strong>
-          <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-            Produto (obrigatório)
-            <select
-              value={saidaProduto}
-              onChange={(e) => setSaidaProduto(e.target.value)}
-              style={{
-                padding: "9px 12px",
-                borderRadius: 8,
-                border: "1px solid rgba(128, 128, 128, 0.35)",
-                background: "transparent",
-                color: "inherit",
-              }}
-            >
-              <option value="">Selecione...</option>
-              {produtos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.codigo} - {p.nome}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-            Número do lote (obrigatório)
-            <input
-              type="number"
-              min="1"
-              placeholder="Ex.: 1001"
-              value={saidaLote}
-              onChange={(e) => setSaidaLote(e.target.value)}
-              style={{
-                padding: "9px 12px",
-                borderRadius: 8,
-                border: "1px solid rgba(128, 128, 128, 0.35)",
-                background: "transparent",
-                color: "inherit",
-              }}
-            />
-          </label>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-              Quantidade
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="Ex.: 100"
-                value={saidaQtd}
-                onChange={(e) => setSaidaQtd(e.target.value)}
-                style={{
-                  padding: "9px 12px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(128, 128, 128, 0.35)",
-                  background: "transparent",
-                  color: "inherit",
-                }}
-              />
-            </label>
-
-            <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-              ID do usuário (obrigatório)
-              <input
-                type="number"
-                min="1"
-                placeholder="ID do funcionário"
-                value={saidaUsuario}
-                onChange={(e) => setSaidaUsuario(e.target.value)}
-                style={{
-                  padding: "9px 12px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(128, 128, 128, 0.35)",
-                  background: "transparent",
-                  color: "inherit",
-                }}
-              />
-            </label>
-          </div>
-
-          <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
-            Destino / Cliente (obrigatório)
-            <input
-              type="text"
-              placeholder="Ex.: Hospital / Distribuidor"
-              value={saidaDestino}
-              onChange={(e) => setSaidaDestino(e.target.value)}
-              style={{
-                padding: "9px 12px",
-                borderRadius: 8,
-                border: "1px solid rgba(128, 128, 128, 0.35)",
-                background: "transparent",
-                color: "inherit",
-              }}
-            />
-          </label>
-
-          <p style={{ margin: 0, fontSize: 12, opacity: 0.7 }}>
-            A API bloqueia a saída se o lote não tiver saldo suficiente.
-          </p>
-
-          <button
-            type="submit"
-            disabled={salvandoSaida}
-            style={{
-              padding: "10px 16px",
-              borderRadius: 8,
-              border: "none",
-              fontWeight: 600,
-              cursor: "pointer",
-              marginTop: "auto",
-            }}
-          >
-            {salvandoSaida ? "Registrando saída..." : "Registrar expedição"}
-          </button>
-        </form>
-      </div>
-
-      <div style={{ marginBottom: 28 }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 12,
-            marginBottom: 12,
-            flexWrap: "wrap",
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 18 }}>Saldos por lote</h2>
+        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+          Nome
           <input
-            type="search"
-            placeholder="Filtrar por lote ou produto..."
-            value={buscaLote}
-            onChange={(e) => setBuscaLote(e.target.value)}
+            type="text"
+            placeholder="Ex.: Resina de polipropileno"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
             style={{
-              padding: "8px 12px",
+              padding: "9px 12px",
               borderRadius: 8,
               border: "1px solid rgba(128, 128, 128, 0.35)",
               background: "transparent",
               color: "inherit",
-              minWidth: 240,
             }}
           />
-        </div>
+        </label>
 
-        {loading ? (
-          <p>Carregando saldos...</p>
-        ) : saldosFiltrados.length === 0 ? (
-          <p style={{ opacity: 0.75 }}>Nenhum saldo de lote encontrado.</p>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table
+        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+          Código
+          <input
+            type="text"
+            placeholder="Ex.: MP-001"
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value)}
+            style={{
+              padding: "9px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(128, 128, 128, 0.35)",
+              background: "transparent",
+              color: "inherit",
+            }}
+          />
+        </label>
+
+        <label
+          style={{
+            display: "grid",
+            gap: 4,
+            fontSize: 13,
+            gridColumn: "span 2",
+          }}
+        >
+          Descrição
+          <input
+            type="text"
+            placeholder="Ex.: Resina médica / Agulha / Cateter"
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+            style={{
+              padding: "9px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(128, 128, 128, 0.35)",
+              background: "transparent",
+              color: "inherit",
+            }}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+          Tipo
+          <select
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value as TipoProduto)}
+            style={{
+              padding: "9px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(128, 128, 128, 0.35)",
+              background: "transparent",
+              color: "inherit",
+            }}
+          >
+            <option value="MATERIA_PRIMA">Matéria-prima</option>
+            <option value="COMPONENTE">Componente</option>
+            <option value="PRODUTO_FINAL">Produto final</option>
+          </select>
+        </label>
+
+        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+          Unidade
+          <input
+            type="text"
+            placeholder="kg, un, cx, ml..."
+            value={unidade}
+            onChange={(e) => setUnidade(e.target.value)}
+            style={{
+              padding: "9px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(128, 128, 128, 0.35)",
+              background: "transparent",
+              color: "inherit",
+            }}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+          Preço / Valor unitário (R$)
+          <input
+            type="text"
+            inputMode="decimal"
+            placeholder="0,00"
+            value={precoVenda}
+            onChange={(e) => setPrecoVenda(e.target.value)}
+            style={{
+              padding: "9px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(128, 128, 128, 0.35)",
+              background: "transparent",
+              color: "inherit",
+            }}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+          Estoque mínimo
+          <input
+            type="text"
+            inputMode="decimal"
+            placeholder="Ex.: 100"
+            value={estoqueMinimo}
+            onChange={(e) => setEstoqueMinimo(e.target.value)}
+            style={{
+              padding: "9px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(128, 128, 128, 0.35)",
+              background: "transparent",
+              color: "inherit",
+            }}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+          Registro ANVISA (opcional)
+          <input
+            type="text"
+            placeholder="Nº do registro"
+            value={registroAnvisa}
+            onChange={(e) => setRegistroAnvisa(e.target.value)}
+            style={{
+              padding: "9px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(128, 128, 128, 0.35)",
+              background: "transparent",
+              color: "inherit",
+            }}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+          Validade do registro ANVISA
+          <input
+            type="date"
+            value={validadeRegistro}
+            onChange={(e) => setValidadeRegistro(e.target.value)}
+            style={{
+              padding: "9px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(128, 128, 128, 0.35)",
+              background: "transparent",
+              color: "inherit",
+            }}
+          />
+        </label>
+
+        {erroForm && (
+          <p
+            style={{
+              gridColumn: "1 / -1",
+              margin: 0,
+              fontSize: 13,
+              color: "#ef4444",
+              fontWeight: 600,
+            }}
+          >
+            {erroForm}
+          </p>
+        )}
+
+        <div
+          style={{
+            gridColumn: "1 / -1",
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 8,
+          }}
+        >
+          {editandoId !== null && (
+            <button
+              type="button"
+              onClick={limparFormulario}
               style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: 14,
+                padding: "10px 16px",
+                borderRadius: 8,
+                border: "1px solid currentColor",
+                background: "transparent",
+                cursor: "pointer",
               }}
             >
-              <thead>
-                <tr
-                  style={{
-                    borderBottom: "1px solid rgba(128, 128, 128, 0.3)",
-                    textAlign: "left",
-                  }}
-                >
-                  <th style={{ padding: "10px 8px" }}>Lote</th>
-                  <th style={{ padding: "10px 8px" }}>Produto</th>
-                  <th style={{ padding: "10px 8px" }}>Saldo</th>
-                  <th style={{ padding: "10px 8px" }}>Validade</th>
-                  <th style={{ padding: "10px 8px" }}>Qualidade</th>
-                  <th style={{ padding: "10px 8px" }}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {saldosFiltrados.map((item, idx) => {
-                  const vencido = isLoteVencido(item.validade);
-                  const abaixoMinimo =
-                    typeof item.estoqueMinimo === "number" &&
-                    item.quantidade <= item.estoqueMinimo;
+              Cancelar edição
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={salvando}
+            style={{
+              padding: "10px 18px",
+              borderRadius: 8,
+              border: "none",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            {salvando
+              ? "Salvando..."
+              : editandoId !== null
+              ? "Salvar alterações"
+              : "Cadastrar insumo"}
+          </button>
+        </div>
+      </form>
 
-                  return (
-                    <tr
-                      key={item.id ?? `${item.codigoLote}-${idx}`}
-                      style={{
-                        borderBottom: "1px solid rgba(128, 128, 128, 0.15)",
-                      }}
-                    >
-                      <td style={{ padding: "10px 8px", fontWeight: 600 }}>
-                        {item.codigoLote}
-                      </td>
-                      <td style={{ padding: "10px 8px" }}>
-                        {item.codigoProduto
-                          ? `${item.codigoProduto} — ${item.descricaoProduto ?? ""}`
-                          : item.descricaoProduto ?? "—"}
-                      </td>
-                      <td style={{ padding: "10px 8px" }}>
-                        {item.quantidade} {item.unidade ?? ""}
-                        {abaixoMinimo && (
-                          <strong style={{ color: "#f59e0b" }}>
-                            {" "}
-                            • Mínimo
-                          </strong>
-                        )}
-                      </td>
-                      <td style={{ padding: "10px 8px" }}>
-                        {formatarData(item.validade)}
-                        {vencido && (
-                          <strong style={{ color: "#ef4444" }}>
-                            {" "}
-                            • Vencido
-                          </strong>
-                        )}
-                      </td>
-                      <td style={{ padding: "10px 8px" }}>
-                        {item.statusQualidade ?? "—"}
-                      </td>
-                      <td style={{ padding: "10px 8px" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 16,
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {(
+            [
+              ["MATERIA_PRIMA", "Matéria-prima"],
+              ["COMPONENTE", "Componentes"],
+              ["PRODUTO_FINAL", "Produtos finais"],
+              ["TODOS", "Todos"],
+            ] as const
+          ).map(([chave, rotulo]) => (
+            <button
+              key={chave}
+              type="button"
+              onClick={() => setFiltroTipo(chave)}
+              style={{
+                padding: "7px 12px",
+                borderRadius: 8,
+                border: "1px solid currentColor",
+                background: "transparent",
+                fontWeight: filtroTipo === chave ? 700 : 400,
+                cursor: "pointer",
+              }}
+            >
+              {rotulo}
+            </button>
+          ))}
+        </div>
+
+        <input
+          type="search"
+          placeholder="Buscar por código, descrição ou ANVISA..."
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            border: "1px solid rgba(128, 128, 128, 0.35)",
+            background: "transparent",
+            color: "inherit",
+            minWidth: 260,
+          }}
+        />
+      </div>
+
+      {loading ? (
+        <p>Carregando itens...</p>
+      ) : itensFiltrados.length === 0 ? (
+        <p style={{ opacity: 0.75 }}>Nenhum item encontrado.</p>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              fontSize: 14,
+            }}
+          >
+            <thead>
+              <tr
+                style={{
+                  borderBottom: "1px solid rgba(128, 128, 128, 0.3)",
+                  textAlign: "left",
+                }}
+              >
+                <th style={{ padding: "10px 8px" }}>Código</th>
+                <th style={{ padding: "10px 8px" }}>Nome</th>
+                <th style={{ padding: "10px 8px" }}>Descrição</th>
+                <th style={{ padding: "10px 8px" }}>Tipo</th>
+                <th style={{ padding: "10px 8px" }}>Un.</th>
+                <th style={{ padding: "10px 8px" }}>Preço</th>
+                <th style={{ padding: "10px 8px" }}>Est. mín.</th>
+                <th style={{ padding: "10px 8px" }}>ANVISA / Validade</th>
+                <th style={{ padding: "10px 8px" }}>Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {itensFiltrados.map((item) => {
+                const vigente = isRegistroVigente(item.vencimento_anvisa);
+                return (
+                  <tr
+                    key={item.id}
+                    style={{
+                      borderBottom: "1px solid rgba(128, 128, 128, 0.15)",
+                    }}
+                  >
+                    <td style={{ padding: "10px 8px", fontWeight: 600 }}>
+                      {item.codigo}
+                    </td>
+                    <td style={{ padding: "10px 8px" }}>{item.nome}</td>
+                    <td style={{ padding: "10px 8px" }}>{item.descricao}</td>
+                    <td style={{ padding: "10px 8px" }}>
+                      {TIPO_LABEL[item.tipo] ?? item.tipo}
+                    </td>
+                    <td style={{ padding: "10px 8px" }}>{item.unidade}</td>
+                    <td style={{ padding: "10px 8px" }}>
+                      {formatarMoeda(item.preco)}
+                    </td>
+                    <td style={{ padding: "10px 8px" }}>
+                      {item.estoque_minimo}
+                    </td>
+                    <td style={{ padding: "10px 8px" }}>
+                      {item.registro_anvisa ? (
+                        <span>
+                          {item.registro_anvisa} (
+                          {formatarData(item.vencimento_anvisa)})
+                          {vigente === false && (
+                            <strong style={{ color: "#ef4444" }}>
+                              {" "}
+                              - Vencido
+                            </strong>
+                          )}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td style={{ padding: "10px 8px" }}>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button
                           type="button"
-                          onClick={() => {
-                            setCodigoRastreio(item.codigoLote);
-                            consultarRastreabilidadeLote(item.codigoLote)
-                              .then(setRastreio)
-                              .catch(() => setRastreio(null));
-                          }}
+                          onClick={() => handleIniciarEdicao(item)}
                           style={{
                             padding: "6px 10px",
                             borderRadius: 6,
@@ -587,199 +608,33 @@ export default function EstoqueELotesPage() {
                             fontSize: 12,
                           }}
                         >
-                          Rastrear
+                          Editar
                         </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      <div
-        style={{
-          padding: 16,
-          borderRadius: 12,
-          border: "1px solid rgba(128, 128, 128, 0.25)",
-          marginBottom: 28,
-        }}
-      >
-        <h2 style={{ margin: "0 0 12px", fontSize: 18 }}>
-          Rastreabilidade do lote (RN07)
-        </h2>
-
-        <form
-          onSubmit={handleRastrear}
-          style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}
-        >
-          <input
-            type="text"
-            placeholder="Código do lote para rastrear"
-            value={codigoRastreio}
-            onChange={(e) => setCodigoRastreio(e.target.value)}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: "1px solid rgba(128, 128, 128, 0.35)",
-              background: "transparent",
-              color: "inherit",
-              minWidth: 240,
-            }}
-          />
-          <button
-            type="submit"
-            disabled={buscandoRastreio}
-            style={{
-              padding: "8px 14px",
-              borderRadius: 8,
-              border: "1px solid currentColor",
-              background: "transparent",
-              cursor: "pointer",
-            }}
-          >
-            {buscandoRastreio ? "Consultando..." : "Consultar lote"}
-          </button>
-        </form>
-
-        {rastreio && (
-          <div style={{ display: "grid", gap: 8, fontSize: 14 }}>
-            <div>
-              <strong>Lote:</strong> {rastreio.codigoLote} |{" "}
-              <strong>Ordem de origem:</strong> {rastreio.ordemOrigem ?? "—"} |{" "}
-              <strong>Qualidade:</strong> {rastreio.statusQualidade ?? "—"} |{" "}
-              <strong>Validade:</strong> {formatarData(rastreio.validade)}
-            </div>
-            {rastreio.destinos && rastreio.destinos.length > 0 && (
-              <div>
-                <strong>Destinos expedidos:</strong>{" "}
-                {rastreio.destinos.join(", ")}
-              </div>
-            )}
-            {rastreio.movimentacoes && rastreio.movimentacoes.length > 0 && (
-              <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
-                {rastreio.movimentacoes.map((m) => (
-                  <li key={m.id}>
-                    [{formatarDataHora(m.dataHora)}] {m.tipo} — {m.quantidade}{" "}
-                    ({m.usuario})
-                    {m.origemDestino ? ` • ${m.origemDestino}` : ""}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 12,
-            marginBottom: 12,
-            flexWrap: "wrap",
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 18 }}>Movimentações</h2>
-
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <input
-              type="text"
-              placeholder="Filtrar produto"
-              value={filtroProdutoMov}
-              onChange={(e) => setFiltroProdutoMov(e.target.value)}
-              style={{
-                padding: "7px 10px",
-                borderRadius: 8,
-                border: "1px solid rgba(128, 128, 128, 0.35)",
-                background: "transparent",
-                color: "inherit",
-              }}
-            />
-            <input
-              type="date"
-              value={filtroPeriodoInicio}
-              onChange={(e) => setFiltroPeriodoInicio(e.target.value)}
-              style={{
-                padding: "7px 10px",
-                borderRadius: 8,
-                border: "1px solid rgba(128, 128, 128, 0.35)",
-                background: "transparent",
-                color: "inherit",
-              }}
-            />
-            <input
-              type="date"
-              value={filtroPeriodoFim}
-              onChange={(e) => setFiltroPeriodoFim(e.target.value)}
-              style={{
-                padding: "7px 10px",
-                borderRadius: 8,
-                border: "1px solid rgba(128, 128, 128, 0.35)",
-                background: "transparent",
-                color: "inherit",
-              }}
-            />
-          </div>
-        </div>
-
-        {movimentacoes.length === 0 ? (
-          <p style={{ opacity: 0.75 }}>Nenhuma movimentação registrada.</p>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: 14,
-              }}
-            >
-              <thead>
-                <tr
-                  style={{
-                    borderBottom: "1px solid rgba(128, 128, 128, 0.3)",
-                    textAlign: "left",
-                  }}
-                >
-                  <th style={{ padding: "10px 8px" }}>Data/Hora</th>
-                  <th style={{ padding: "10px 8px" }}>Tipo</th>
-                  <th style={{ padding: "10px 8px" }}>Lote</th>
-                  <th style={{ padding: "10px 8px" }}>Quantidade</th>
-                  <th style={{ padding: "10px 8px" }}>Usuário</th>
-                  <th style={{ padding: "10px 8px" }}>Origem / Destino</th>
-                </tr>
-              </thead>
-              <tbody>
-                {movimentacoes.map((mov) => (
-                  <tr
-                    key={mov.id}
-                    style={{
-                      borderBottom: "1px solid rgba(128, 128, 128, 0.15)",
-                    }}
-                  >
-                    <td style={{ padding: "10px 8px" }}>
-                      {formatarDataHora(mov.dataHora)}
-                    </td>
-                    <td style={{ padding: "10px 8px", fontWeight: 600 }}>
-                      {mov.tipo}
-                    </td>
-                    <td style={{ padding: "10px 8px" }}>{mov.codigoLote}</td>
-                    <td style={{ padding: "10px 8px" }}>{mov.quantidade}</td>
-                    <td style={{ padding: "10px 8px" }}>{mov.usuario}</td>
-                    <td style={{ padding: "10px 8px" }}>
-                      {mov.origemDestino ?? "—"}
+                        <button
+                          type="button"
+                          disabled={excluindoId === item.id}
+                          onClick={() => handleExcluir(item)}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 6,
+                            border: "1px solid #ef4444",
+                            color: "#ef4444",
+                            background: "transparent",
+                            cursor: "pointer",
+                            fontSize: 12,
+                          }}
+                        >
+                          {excluindoId === item.id ? "Excluindo..." : "Excluir"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }

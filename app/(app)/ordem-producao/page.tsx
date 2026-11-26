@@ -4,9 +4,12 @@ import { FormEvent, Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { listarProdutos, type Produto } from "../../lib/insumos";
 import {
+  atualizarOrdemProducao,
   confirmarMateriaisOrdem,
   emitirOrdemProducao,
+  excluirOrdemProducao,
   listarOrdensProducao,
+  type ItemNecessidade,
   type OrdemProducao,
   type StatusOrdem,
 } from "../../lib/ordens";
@@ -45,9 +48,16 @@ function OrdemProducaoConteudo() {
   const [prazo, setPrazo] = useState("");
   const [prioridade, setPrioridade] = useState("1");
   const [emitindo, setEmitindo] = useState(false);
+  const [erroAcao, setErroAcao] = useState<string | null>(null);
   const [confirmandoId, setConfirmandoId] = useState<number | null>(null);
+  const [faltasOrdem, setFaltasOrdem] = useState<{
+    ordemId: number;
+    numero?: string;
+    itens: ItemNecessidade[];
+  } | null>(null);
 
   function alternarView(novaView: "lista" | "nova") {
+    setErroAcao(null);
     router.replace(`/ordem-producao?view=${novaView}`, { scroll: false });
   }
 
@@ -74,14 +84,24 @@ function OrdemProducaoConteudo() {
 
   async function handleEmitir(e: FormEvent) {
     e.preventDefault();
+    setErroAcao(null);
 
     const idProd = Number(produtoId);
     const qtdNum = Number(quantidade.replace(",", "."));
     const prioNum = Number(prioridade);
 
-    if (!idProd || Number.isNaN(idProd)) return;
-    if (Number.isNaN(qtdNum) || qtdNum <= 0) return;
-    if (!prazo) return;
+    if (!idProd || Number.isNaN(idProd)) {
+      setErroAcao("Selecione um produto.");
+      return;
+    }
+    if (Number.isNaN(qtdNum) || qtdNum <= 0) {
+      setErroAcao("Informe uma quantidade maior que zero.");
+      return;
+    }
+    if (!prazo) {
+      setErroAcao("Informe o prazo de entrega.");
+      return;
+    }
 
     setEmitindo(true);
     try {
@@ -93,25 +113,95 @@ function OrdemProducaoConteudo() {
       });
       setOrdens((prev) => [criada, ...prev]);
       setQuantidade("");
+      if (criada.faltas && criada.faltas.length > 0) {
+        setFaltasOrdem({
+          ordemId: criada.id,
+          numero: criada.numero,
+          itens: criada.faltas,
+        });
+      }
       alternarView("lista");
-    } catch {
-      // Silenciado sem banner de erro
+    } catch (err) {
+      setErroAcao(
+        err instanceof Error ? err.message : "Erro ao emitir ordem de produção."
+      );
     } finally {
       setEmitindo(false);
     }
   }
 
   async function handleConfirmarMateriais(id: number) {
+    setErroAcao(null);
     setConfirmandoId(id);
     try {
       const atualizada = await confirmarMateriaisOrdem(id);
       setOrdens((prev) =>
-        prev.map((item) => (item.id === id ? atualizada : item))
+        prev.map((item) => (item.id === id ? { ...item, ...atualizada } : item))
       );
-    } catch {
-      // Silenciado sem banner de erro
+      if (atualizada.faltas && atualizada.faltas.length > 0) {
+        setFaltasOrdem({
+          ordemId: atualizada.id,
+          numero: atualizada.numero,
+          itens: atualizada.faltas,
+        });
+      } else if (faltasOrdem?.ordemId === id) {
+        setFaltasOrdem(null);
+      }
+    } catch (err) {
+      setErroAcao(
+        err instanceof Error ? err.message : "Erro ao confirmar materiais."
+      );
     } finally {
       setConfirmandoId(null);
+    }
+  }
+
+  async function handleEditarOrdem(ordem: OrdemProducao) {
+    setErroAcao(null);
+    const novaQtdStr = window.prompt(
+      "Nova quantidade:",
+      String(ordem.quantidade ?? 1)
+    );
+    if (novaQtdStr === null) return;
+    const novaQtd = Number(novaQtdStr.replace(",", "."));
+    if (Number.isNaN(novaQtd) || novaQtd <= 0) {
+      setErroAcao("Informe uma quantidade válida maior que zero.");
+      return;
+    }
+
+    try {
+      const atualizada = await atualizarOrdemProducao(ordem.id, {
+        produtoId: ordem.produtoId ?? Number(produtoId),
+        quantidade: novaQtd,
+        prazo: ordem.prazo ? ordem.prazo.slice(0, 10) : prazo,
+        prioridade: ordem.prioridade ?? 1,
+      });
+      setOrdens((prev) =>
+        prev.map((item) =>
+          item.id === ordem.id ? { ...item, ...atualizada } : item
+        )
+      );
+    } catch (err) {
+      setErroAcao(
+        err instanceof Error ? err.message : "Erro ao atualizar ordem."
+      );
+    }
+  }
+
+  async function handleExcluirOrdem(id: number) {
+    setErroAcao(null);
+    if (!window.confirm(`Excluir a ordem #${id}?`)) return;
+
+    try {
+      await excluirOrdemProducao(id);
+      setOrdens((prev) => prev.filter((item) => item.id !== id));
+      if (faltasOrdem?.ordemId === id) {
+        setFaltasOrdem(null);
+      }
+    } catch (err) {
+      setErroAcao(
+        err instanceof Error ? err.message : "Erro ao excluir ordem."
+      );
     }
   }
 
@@ -133,7 +223,7 @@ function OrdemProducaoConteudo() {
           </h1>
           <p style={{ margin: "4px 0 0", opacity: 0.75, fontSize: 14 }}>
             Emissão com verificação de materiais via BOM, faltas para Compras e
-            liberação (RF06, RF25, RN04, RN13)[cite: 8, 9, 13, 19, 78, 79]
+            liberação (RF06, RF25, RN04, RN13)
           </p>
         </div>
 
@@ -183,6 +273,22 @@ function OrdemProducaoConteudo() {
         </div>
       </header>
 
+      {erroAcao && (
+        <p
+          style={{
+            margin: "0 0 16px",
+            padding: "10px 14px",
+            borderRadius: 8,
+            border: "1px solid #ef4444",
+            color: "#ef4444",
+            fontSize: 14,
+            fontWeight: 600,
+          }}
+        >
+          {erroAcao}
+        </p>
+      )}
+
       {view === "nova" && (
         <form
           onSubmit={handleEmitir}
@@ -197,7 +303,7 @@ function OrdemProducaoConteudo() {
           }}
         >
           <strong style={{ gridColumn: "1 / -1" }}>
-            Emitir ordem de produção (verificação automática de BOM)[cite: 13, 79]
+            Emitir ordem de produção (verificação automática de BOM)
           </strong>
 
           <label
@@ -322,6 +428,55 @@ function OrdemProducaoConteudo() {
         </form>
       )}
 
+      {faltasOrdem && faltasOrdem.itens.length > 0 && (
+        <div
+          style={{
+            padding: 16,
+            borderRadius: 12,
+            border: "1px solid rgba(245, 158, 11, 0.5)",
+            marginBottom: 20,
+            fontSize: 14,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 8,
+            }}
+          >
+            <strong>
+              Materiais em falta — {faltasOrdem.numero ?? `#${faltasOrdem.ordemId}`} (AGUARDANDO_MATERIAIS)
+            </strong>
+            <button
+              type="button"
+              onClick={() => setFaltasOrdem(null)}
+              style={{
+                padding: "4px 10px",
+                borderRadius: 6,
+                border: "1px solid currentColor",
+                background: "transparent",
+                cursor: "pointer",
+                fontSize: 12,
+              }}
+            >
+              Fechar
+            </button>
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {faltasOrdem.itens.map((item) => (
+              <li key={item.materialId}>
+                <strong>{item.codigoMaterial}</strong> — {item.descricaoMaterial}:
+                necessário {item.necessario}, disponível {item.disponivel},{" "}
+                <strong>falta {item.falta}</strong>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div
         style={{
           display: "flex",
@@ -404,11 +559,31 @@ function OrdemProducaoConteudo() {
                     {ordem.status}
                   </td>
                   <td style={{ padding: "10px 8px" }}>
-                    {ordem.status === "AGUARDANDO_MATERIAIS" ? (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {(ordem.status === "EMITIDA" ||
+                        ordem.status === "AGUARDANDO_MATERIAIS") && (
+                        <button
+                          type="button"
+                          disabled={confirmandoId === ordem.id}
+                          onClick={() => handleConfirmarMateriais(ordem.id)}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 6,
+                            border: "1px solid currentColor",
+                            background: "transparent",
+                            cursor: "pointer",
+                            fontSize: 12,
+                          }}
+                        >
+                          {confirmandoId === ordem.id
+                            ? "Confirmando..."
+                            : "Confirmar materiais e liberar"}
+                        </button>
+                      )}
+
                       <button
                         type="button"
-                        disabled={confirmandoId === ordem.id}
-                        onClick={() => handleConfirmarMateriais(ordem.id)}
+                        onClick={() => handleEditarOrdem(ordem)}
                         style={{
                           padding: "6px 10px",
                           borderRadius: 6,
@@ -418,13 +593,25 @@ function OrdemProducaoConteudo() {
                           fontSize: 12,
                         }}
                       >
-                        {confirmandoId === ordem.id
-                          ? "Confirmando..."
-                          : "Confirmar materiais e liberar"}
+                        Editar
                       </button>
-                    ) : (
-                      "—"
-                    )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleExcluirOrdem(ordem.id)}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: 6,
+                          border: "1px solid #ef4444",
+                          color: "#ef4444",
+                          background: "transparent",
+                          cursor: "pointer",
+                          fontSize: 12,
+                        }}
+                      >
+                        Excluir
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

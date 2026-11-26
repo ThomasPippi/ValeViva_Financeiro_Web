@@ -27,7 +27,7 @@ export async function listarProdutos(tipo?: TipoProduto): Promise<Produto[]> {
     throw new Error(`Erro HTTP ${res.status}`);
   }
   const dados = await res.json();
-  const produtos: Produto[] = dados.content;
+  const produtos: Produto[] = Array.isArray(dados) ? dados : dados.content ?? [];
 
   // o backend não filtra por tipo, então filtra aqui
   if (tipo) {
@@ -36,11 +36,36 @@ export async function listarProdutos(tipo?: TipoProduto): Promise<Produto[]> {
   return produtos;
 }
 
-export async function criarProduto(payload: CriarProdutoInput) {
+export async function criarProduto(payload: CriarProdutoInput): Promise<void> {
   const res = await fetch("/backend/produtos", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const texto = await res.text().catch(() => "");
+    throw new Error(texto || `Erro HTTP ${res.status}`);
+  }
+}
+
+export async function atualizarProduto(
+  id: number,
+  payload: CriarProdutoInput
+): Promise<void> {
+  const res = await fetch(`/backend/produtos/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const texto = await res.text().catch(() => "");
+    throw new Error(texto || `Erro HTTP ${res.status}`);
+  }
+}
+
+export async function excluirProduto(id: number): Promise<void> {
+  const res = await fetch(`/backend/produtos/${id}`, {
+    method: "DELETE",
   });
   if (!res.ok) {
     const texto = await res.text().catch(() => "");
