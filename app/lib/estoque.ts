@@ -1,5 +1,6 @@
 export type StatusQualidade =
   | "PENDENTE"
+  | "QUARENTENA"
   | "APROVADO"
   | "REPROVADO"
   | "BLOQUEADO";
@@ -60,6 +61,25 @@ export type RastreabilidadeLote = {
   saldoAtual?: number;
   movimentacoes?: MovimentacaoEstoque[];
   destinos?: string[];
+};
+
+type RastreabilidadeApiResponse = {
+  lote?: {
+    codigo?: string;
+    produtoNome?: string;
+    ordemOrigemId?: number | null;
+    dataValidade?: string | null;
+    statusQualidade?: string;
+  };
+  saldoAtual?: number;
+  movimentacoes?: Array<{
+    id: number;
+    tipo: string;
+    quantidade: string | number;
+    dataHora: string;
+    usuario: string;
+    origemDestino?: string | null;
+  }>;
 };
 
 // "/backend" é redirecionado para a API Spring no next.config.ts (evita erro de CORS)
@@ -125,9 +145,27 @@ export async function consultarRastreabilidadeLote(
   codigoLote: string
 ): Promise<RastreabilidadeLote> {
   const res = await fetch(
-    // TODO: endpoint de rastreabilidade ainda não existe no backend
     `${API_BASE_URL}/lotes/${encodeURIComponent(codigoLote)}/rastreabilidade`,
     { cache: "no-store" }
   );
-  return parseResponse<RastreabilidadeLote>(res);
+  const raw = await parseResponse<RastreabilidadeApiResponse>(res);
+
+  return {
+    codigoLote: raw.lote?.codigo ?? codigoLote,
+    produtoDescricao: raw.lote?.produtoNome,
+    ordemOrigem:
+      raw.lote?.ordemOrigemId != null ? `OP #${raw.lote.ordemOrigemId}` : null,
+    validade: raw.lote?.dataValidade ?? null,
+    statusQualidade: raw.lote?.statusQualidade,
+    saldoAtual: raw.saldoAtual,
+    movimentacoes: (raw.movimentacoes ?? []).map((m) => ({
+      id: m.id,
+      tipo: m.tipo,
+      codigoLote: raw.lote?.codigo ?? codigoLote,
+      quantidade: Number(m.quantidade),
+      dataHora: m.dataHora,
+      usuario: m.usuario,
+      origemDestino: m.origemDestino ?? null,
+    })),
+  };
 }

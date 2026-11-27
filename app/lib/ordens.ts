@@ -44,6 +44,9 @@ async function parseResponse<T>(res: Response): Promise<T> {
     const texto = await res.text().catch(() => "");
     throw new Error(texto || `Erro HTTP ${res.status}`);
   }
+  if (res.status === 204) {
+    return undefined as T;
+  }
   return res.json() as Promise<T>;
 }
 
@@ -51,7 +54,8 @@ export async function listarOrdensProducao(
   status?: StatusOrdem | "TODAS"
 ): Promise<OrdemProducao[]> {
   const res = await fetch(`${API_BASE_URL}/ordens-producao`, { cache: "no-store" });
-  const ordens = await parseResponse<OrdemProducao[]>(res);
+  const dados = await parseResponse<OrdemProducao[] | { content?: OrdemProducao[] }>(res);
+  const ordens = Array.isArray(dados) ? dados : dados.content ?? [];
   // o backend não filtra por status, então filtra aqui
   if (status && status !== "TODAS") {
     return ordens.filter((ordem) => ordem.status === status);
@@ -70,15 +74,30 @@ export async function emitirOrdemProducao(
   return parseResponse<OrdemProducao>(res);
 }
 
+export async function atualizarOrdemProducao(
+  id: number,
+  payload: EmitirOrdemInput
+): Promise<OrdemProducao> {
+  const res = await fetch(`${API_BASE_URL}/ordens-producao/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return parseResponse<OrdemProducao>(res);
+}
+
+export async function excluirOrdemProducao(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/ordens-producao/${id}`, {
+    method: "DELETE",
+  });
+  await parseResponse<void>(res);
+}
+
 export async function confirmarMateriaisOrdem(
   id: number
 ): Promise<OrdemProducao> {
-  const res = await fetch(
-    // TODO: endpoint ainda não existe no backend (precisa da lista de materiais do produto)
-    `${API_BASE_URL}/ordens-producao/${id}/confirmar-materiais`,
-    {
-      method: "POST",
-    }
-  );
+  const res = await fetch(`${API_BASE_URL}/ordens-producao/${id}/confirmar-materiais`, {
+    method: "POST",
+  });
   return parseResponse<OrdemProducao>(res);
 }

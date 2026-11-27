@@ -55,6 +55,7 @@ export default function CadastroInsumosPage() {
   const [registroAnvisa, setRegistroAnvisa] = useState("");
   const [validadeRegistro, setValidadeRegistro] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [erroForm, setErroForm] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -72,13 +73,23 @@ export default function CadastroInsumosPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    setErroForm(null);
 
     const precoNum = Number(precoVenda.replace(",", "."));
     const estoqueMinNum = Number(estoqueMinimo.replace(",", "."));
 
-    if (!nome.trim() || !codigo.trim() || !descricao.trim() || !unidade.trim()) return;
-    if (Number.isNaN(precoNum) || precoNum < 0) return;
-    if (Number.isNaN(estoqueMinNum) || estoqueMinNum < 0) return;
+    if (!nome.trim() || !codigo.trim() || !descricao.trim() || !unidade.trim()) {
+      setErroForm("Preencha nome, código, descrição e unidade.");
+      return;
+    }
+    if (Number.isNaN(precoNum) || precoNum < 0) {
+      setErroForm("Informe um preço/valor unitário válido.");
+      return;
+    }
+    if (Number.isNaN(estoqueMinNum) || estoqueMinNum < 0) {
+      setErroForm("Informe um estoque mínimo válido.");
+      return;
+    }
 
     setSalvando(true);
     try {
@@ -95,8 +106,6 @@ export default function CadastroInsumosPage() {
         vencimento_anvisa: validadeRegistro || null,
         is_ativo: true,
       });
-      // o backend não devolve o produto criado, então recarrega a lista
-      carregar();
       setNome("");
       setCodigo("");
       setDescricao("");
@@ -104,8 +113,11 @@ export default function CadastroInsumosPage() {
       setEstoqueMinimo("");
       setRegistroAnvisa("");
       setValidadeRegistro("");
-    } catch {
-      // Silenciado sem banner de erro
+      await carregar();
+    } catch (err) {
+      setErroForm(
+        err instanceof Error ? err.message : "Erro ao cadastrar insumo."
+      );
     } finally {
       setSalvando(false);
     }
@@ -138,7 +150,7 @@ export default function CadastroInsumosPage() {
         <div>
           <h1 style={{ margin: 0, fontSize: 24 }}>Cadastro de insumos</h1>
           <p style={{ margin: "4px 0 0", opacity: 0.75, fontSize: 14 }}>
-            Matérias-primas, componentes e produtos acabados (RF22 / RN16)[cite: 12, 19]
+            Matérias-primas, componentes e produtos acabados (RF22 / RN16)
           </p>
         </div>
 
@@ -335,6 +347,20 @@ export default function CadastroInsumosPage() {
           />
         </label>
 
+        {erroForm && (
+          <p
+            style={{
+              gridColumn: "1 / -1",
+              margin: 0,
+              fontSize: 13,
+              color: "#ef4444",
+              fontWeight: 600,
+            }}
+          >
+            {erroForm}
+          </p>
+        )}
+
         <div
           style={{
             gridColumn: "1 / -1",
@@ -474,7 +500,7 @@ export default function CadastroInsumosPage() {
                           {vigente === false && (
                             <strong style={{ color: "#ef4444" }}>
                               {" "}
-                              • Vencido
+                              - Vencido
                             </strong>
                           )}
                         </span>
