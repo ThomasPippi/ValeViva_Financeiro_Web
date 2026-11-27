@@ -31,6 +31,11 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: var(--shadow);
+  transition: border-color 0.15s;
+}
+
+.stat:hover {
+  border-color: var(--accent);
 }
 
 .stat span {
@@ -44,12 +49,118 @@
   font-variant-numeric: tabular-nums;
 }
 
-.stat[data-tone="success"] strong {
-  color: var(--accent);
-}
-
 .stat[data-tone="danger"] strong {
   color: var(--danger);
+}
+
+.stat[data-tone="warning"] strong {
+  color: var(--warning);
+}
+
+.alerta {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 14px;
+}
+
+/* ---------- Painéis com listas ---------- */
+.panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panelHeader h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.panelHeader a {
+  font-size: 13px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.panelHeader a:hover {
+  text-decoration: underline;
+}
+
+.panelEmpty {
+  padding: 18px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+}
+
+.row + .row {
+  border-top: 1px solid var(--border);
+}
+
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowMain strong {
+  font-size: 14px;
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowMain span {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.rowSide {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.rowSide[data-tone="danger"] {
+  color: var(--danger);
+}
+
+.rowSide[data-tone="warning"] {
+  color: var(--warning);
 }
 
 .shortcuts {

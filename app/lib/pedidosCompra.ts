@@ -1,9 +1,12 @@
 // Chamadas da API de pedidos de compra
-// Endpoints esperados no backend (ainda não implementados):
-//   GET  /pedidos-compra                  -> lista paginada (Page)
-//   GET  /pedidos-compra/{id}             -> um pedido
-//   POST /pedidos-compra                  -> cria pedido
-//   PUT  /pedidos-compra/{id}/recebimento -> registra o recebimento
+//   GET    /pedidos-compra                  -> lista paginada (Page)
+//   GET    /pedidos-compra/{id}             -> um pedido
+//   POST   /pedidos-compra                  -> cria pedido
+//   PUT    /pedidos-compra/{id}             -> altera pedido (só ABERTO; substitui os itens)
+//   DELETE /pedidos-compra/{id}             -> exclui pedido (qualquer status)
+//   PUT    /pedidos-compra/{id}/recebimento -> registra o recebimento
+
+import { falharComMensagem } from "./api";
 
 export type StatusPedido = "ABERTO" | "RECEBIDO" | "CANCELADO";
 
@@ -71,6 +74,24 @@ export async function cadastrarPedido(pedido: NovoPedido) {
   });
   if (!resposta.ok) {
     throw new Error("Erro ao cadastrar o pedido");
+  }
+}
+
+export async function atualizarPedido(id: number | string, pedido: NovoPedido) {
+  const resposta = await fetch(`/backend/pedidos-compra/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(pedido),
+  });
+  if (!resposta.ok) {
+    await falharComMensagem(resposta, "Erro ao atualizar o pedido");
+  }
+}
+
+export async function excluirPedido(id: number) {
+  const resposta = await fetch(`/backend/pedidos-compra/${id}`, { method: "DELETE" });
+  if (!resposta.ok) {
+    await falharComMensagem(resposta, "Erro ao excluir o pedido");
   }
 }
 

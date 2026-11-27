@@ -4,20 +4,56 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import styles from "@/app/styles/paginas.module.css";
 import { formatCurrency, formatDate } from "@/app/lib/format";
-import { buscarPedidos, estaAtrasado, totalPedido, type PedidoCompra } from "@/app/lib/pedidosCompra";
+import { mensagemDeErro } from "@/app/lib/api";
+import {
+  buscarPedidos,
+  estaAtrasado,
+  excluirPedido,
+  totalPedido,
+  type PedidoCompra,
+} from "@/app/lib/pedidosCompra";
 
 export default function PedidosCompraPage() {
   const [pedidos, setPedidos] = useState<PedidoCompra[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
   const [somenteAtrasados, setSomenteAtrasados] = useState(false);
+  const [excluindoId, setExcluindoId] = useState<number | null>(null);
 
-  useEffect(() => {
+  function carregarPedidos() {
     buscarPedidos()
-      .then((lista) => setPedidos(lista))
+      .then((lista) => {
+        setPedidos(lista);
+        setErro("");
+      })
       .catch(() => setErro("Não foi possível carregar os pedidos."))
       .finally(() => setCarregando(false));
+  }
+
+  useEffect(() => {
+    carregarPedidos();
   }, []);
+
+  async function excluir(pedido: PedidoCompra) {
+    const aviso =
+      pedido.status === "RECEBIDO"
+        ? "\n\nEste pedido já foi recebido. Excluir o pedido não desfaz a entrada no estoque."
+        : "";
+    const confirmou = window.confirm(
+      `Excluir o pedido #${pedido.id} (${pedido.fornecedor_nome})?${aviso}\n\nEssa ação não pode ser desfeita.`,
+    );
+    if (!confirmou) return;
+
+    setExcluindoId(pedido.id);
+    setErro("");
+    try {
+      await excluirPedido(pedido.id);
+      carregarPedidos();
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível excluir o pedido."));
+    }
+    setExcluindoId(null);
+  }
 
   let pedidosFiltrados = pedidos;
   if (somenteAtrasados) {
@@ -88,11 +124,27 @@ export default function PedidosCompraPage() {
                 <td>{formatCurrency(totalPedido(pedido))}</td>
                 <td>{mostrarStatus(pedido)}</td>
                 <td>
-                  {pedido.status === "ABERTO" && (
-                    <Link href={`/pedidos-compra/${pedido.id}/recebimento`} className={styles.botaoPequeno}>
-                      Receber
-                    </Link>
-                  )}
+                  <div className={styles.acoesLinha}>
+                    {/* só pedidos em aberto podem ser recebidos ou alterados */}
+                    {pedido.status === "ABERTO" && (
+                      <>
+                        <Link href={`/pedidos-compra/${pedido.id}/recebimento`} className={styles.botaoPequeno}>
+                          Receber
+                        </Link>
+                        <Link href={`/pedidos-compra/${pedido.id}/editar`} className={styles.botaoPequeno}>
+                          Editar
+                        </Link>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      className={`${styles.botaoPequeno} ${styles.botaoPerigo}`}
+                      onClick={() => excluir(pedido)}
+                      disabled={excluindoId === pedido.id}
+                    >
+                      {excluindoId === pedido.id ? "Excluindo..." : "Excluir"}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 import styles from "@/app/styles/paginas.module.css";
-import { buscarFornecedores, cadastrarFornecedor, type Fornecedor } from "@/app/lib/fornecedores";
+import { mensagemDeErro } from "@/app/lib/api";
+import {
+  atualizarFornecedor,
+  buscarFornecedores,
+  cadastrarFornecedor,
+  excluirFornecedor,
+  type Fornecedor,
+} from "@/app/lib/fornecedores";
 
 export default function FornecedoresPage() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
@@ -10,16 +17,20 @@ export default function FornecedoresPage() {
   const [erro, setErro] = useState("");
   const [busca, setBusca] = useState("");
 
-  // campos do formulário
+  // campos do formulário (o mesmo form serve para criar e editar)
   const [mostrarForm, setMostrarForm] = useState(false);
+  // null = cadastrando um novo; preenchido = editando esse fornecedor
+  const [editando, setEditando] = useState<Fornecedor | null>(null);
   const [razaoSocial, setRazaoSocial] = useState("");
   const [nomeFantasia, setNomeFantasia] = useState("");
   const [cnpj, setCnpj] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
   const [prazoEntrega, setPrazoEntrega] = useState("7");
+  const [ativo, setAtivo] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erroForm, setErroForm] = useState("");
+  const [excluindoId, setExcluindoId] = useState<number | null>(null);
 
   function carregarFornecedores() {
     buscarFornecedores()
@@ -42,7 +53,47 @@ export default function FornecedoresPage() {
     setEmail("");
     setTelefone("");
     setPrazoEntrega("7");
+    setAtivo(true);
     setErroForm("");
+    setEditando(null);
+  }
+
+  function fecharFormulario() {
+    limparFormulario();
+    setMostrarForm(false);
+  }
+
+  function abrirEdicao(f: Fornecedor) {
+    setEditando(f);
+    setRazaoSocial(f.razao_social ?? "");
+    setNomeFantasia(f.nome_fantasia ?? "");
+    setCnpj(f.cnpj ?? "");
+    setEmail(f.email ?? "");
+    setTelefone(f.telefone ?? "");
+    setPrazoEntrega(String(f.prazo_entrega_dias ?? 0));
+    setAtivo(f.is_ativo);
+    setErroForm("");
+    setMostrarForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function excluir(f: Fornecedor) {
+    const confirmou = window.confirm(
+      `Excluir o fornecedor "${f.nome_fantasia || f.razao_social}"?\n\n` +
+        "Todos os pedidos de compra desse fornecedor também serão excluídos. Essa ação não pode ser desfeita.",
+    );
+    if (!confirmou) return;
+
+    setExcluindoId(f.id);
+    setErro("");
+    try {
+      await excluirFornecedor(f.id);
+      if (editando?.id === f.id) fecharFormulario();
+      carregarFornecedores();
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível excluir o fornecedor."));
+    }
+    setExcluindoId(null);
   }
 
   async function salvar(e: React.FormEvent) {
@@ -56,21 +107,26 @@ export default function FornecedoresPage() {
     setSalvando(true);
     setErroForm("");
 
+    const dados = {
+      razao_social: razaoSocial,
+      nome_fantasia: nomeFantasia,
+      cnpj: cnpj,
+      email: email,
+      telefone: telefone,
+      prazo_entrega_dias: Number(prazoEntrega) || 0,
+      is_ativo: ativo,
+    };
+
     try {
-      await cadastrarFornecedor({
-        razao_social: razaoSocial,
-        nome_fantasia: nomeFantasia,
-        cnpj: cnpj,
-        email: email,
-        telefone: telefone,
-        prazo_entrega_dias: Number(prazoEntrega) || 0,
-        is_ativo: true,
-      });
-      limparFormulario();
-      setMostrarForm(false);
+      if (editando) {
+        await atualizarFornecedor(editando.id, dados);
+      } else {
+        await cadastrarFornecedor(dados);
+      }
+      fecharFormulario();
       carregarFornecedores();
-    } catch {
-      setErroForm("Não foi possível salvar o fornecedor.");
+    } catch (e) {
+      setErroForm(mensagemDeErro(e, "Não foi possível salvar o fornecedor."));
     }
 
     setSalvando(false);
@@ -101,7 +157,9 @@ export default function FornecedoresPage() {
 
       {mostrarForm && (
         <form className={styles.card} onSubmit={salvar}>
-          <h2 className={styles.modalTitulo}>Novo fornecedor</h2>
+          <h2 className={styles.modalTitulo}>
+            {editando ? `Editar fornecedor #${editando.id}` : "Novo fornecedor"}
+          </h2>
 
           {erroForm && <p className={styles.erro} style={{ marginBottom: 12 }}>{erroForm}</p>}
 
@@ -146,16 +204,20 @@ export default function FornecedoresPage() {
                 onChange={(e) => setPrazoEntrega(e.target.value)}
               />
             </label>
+
+            {editando && (
+              <label className={styles.checkbox}>
+                <input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} />
+                Fornecedor ativo
+              </label>
+            )}
           </div>
 
           <div className={styles.rodapeForm}>
             <button
               type="button"
               className={styles.botaoSecundario}
-              onClick={() => {
-                limparFormulario();
-                setMostrarForm(false);
-              }}
+              onClick={fecharFormulario}
             >
               Cancelar
             </button>
@@ -189,6 +251,7 @@ export default function FornecedoresPage() {
               <th>Telefone</th>
               <th>Prazo</th>
               <th>Status</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -206,6 +269,21 @@ export default function FornecedoresPage() {
                   ) : (
                     <span className={styles.tag}>Inativo</span>
                   )}
+                </td>
+                <td>
+                  <div className={styles.acoesLinha}>
+                    <button type="button" className={styles.botaoPequeno} onClick={() => abrirEdicao(f)}>
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.botaoPequeno} ${styles.botaoPerigo}`}
+                      onClick={() => excluir(f)}
+                      disabled={excluindoId === f.id}
+                    >
+                      {excluindoId === f.id ? "Excluindo..." : "Excluir"}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

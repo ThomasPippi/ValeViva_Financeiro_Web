@@ -1,6 +1,8 @@
 // Chamadas da API de produtos (backend Spring em ValeViva_Financeiro).
 // O "/backend" é redirecionado para o localhost:8080 no next.config.ts
 
+import { falharComMensagem } from "./api";
+
 export type TipoProduto = "MATERIA_PRIMA" | "COMPONENTE" | "PRODUTO_FINAL";
 
 export type Produto = {
@@ -44,5 +46,25 @@ export async function cadastrarProduto(produto: NovoProduto) {
   });
   if (!resposta.ok) {
     throw new Error("Erro ao cadastrar o produto");
+  }
+}
+
+export async function atualizarProduto(id: number, produto: NovoProduto) {
+  const resposta = await fetch(`/backend/produtos/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(produto),
+  });
+  if (!resposta.ok) {
+    await falharComMensagem(resposta, "Erro ao atualizar o produto");
+  }
+}
+
+// O backend apaga junto tudo que depende do produto: itens de pedido, ordens de
+// produção, lotes, saldos/movimentações de estoque, BOM e roteiros.
+export async function excluirProduto(id: number) {
+  const resposta = await fetch(`/backend/produtos/${id}`, { method: "DELETE" });
+  if (!resposta.ok) {
+    await falharComMensagem(resposta, "Erro ao excluir o produto");
   }
 }

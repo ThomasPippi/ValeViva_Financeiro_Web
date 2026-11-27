@@ -120,8 +120,8 @@ function NotificacoesConteudo() {
               : "Todas as notificações"}
           </h1>
           <p style={{ margin: "4px 0 0", opacity: 0.75, fontSize: 14 }}>
-            Alertas de estoque mínimo, validade de lote/ANVISA, ordens e
-            financeiro
+            Alertas de estoque mínimo, validade de lote/ANVISA e ordens de
+            produção
           </p>
         </div>
 

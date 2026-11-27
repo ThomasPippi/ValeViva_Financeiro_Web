@@ -69,6 +69,29 @@
   text-decoration: none;
 }
 
+.botaoPequeno:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Ação destrutiva (excluir) */
+.botaoPerigo {
+  color: var(--danger);
+  border-color: var(--danger-soft);
+}
+
+.botaoPerigo:hover:not(:disabled) {
+  background: var(--danger-soft);
+}
+
+/* Botões de ação na última coluna da tabela */
+.acoesLinha {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
 /* ---------- Filtros ---------- */
 .filtros {
   display: flex;

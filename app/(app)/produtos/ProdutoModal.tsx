@@ -2,24 +2,34 @@
 
 import { useState } from "react";
 import styles from "@/app/styles/paginas.module.css";
-import { cadastrarProduto, type TipoProduto } from "@/app/lib/produtos";
+import { mensagemDeErro } from "@/app/lib/api";
+import {
+  atualizarProduto,
+  cadastrarProduto,
+  type Produto,
+  type TipoProduto,
+} from "@/app/lib/produtos";
 
 type Props = {
+  /** Produto a editar; sem ele, o modal cadastra um novo. */
+  produto?: Produto;
   onFechar: () => void;
   onSalvo: () => void;
 };
 
-export default function NovoProdutoModal({ onFechar, onSalvo }: Props) {
-  const [nome, setNome] = useState("");
-  const [codigo, setCodigo] = useState("");
-  const [descricao, setDescricao] = useState("");
-  const [tipo, setTipo] = useState<TipoProduto>("MATERIA_PRIMA");
-  const [unidade, setUnidade] = useState("UN");
-  const [preco, setPreco] = useState("");
-  const [estoque, setEstoque] = useState("0");
-  const [estoqueMinimo, setEstoqueMinimo] = useState("0");
-  const [registroAnvisa, setRegistroAnvisa] = useState("");
-  const [vencimentoAnvisa, setVencimentoAnvisa] = useState("");
+export default function ProdutoModal({ produto, onFechar, onSalvo }: Props) {
+  // Na edição, os campos começam com os dados do produto.
+  const [nome, setNome] = useState(produto?.nome ?? "");
+  const [codigo, setCodigo] = useState(produto?.codigo ?? "");
+  const [descricao, setDescricao] = useState(produto?.descricao ?? "");
+  const [tipo, setTipo] = useState<TipoProduto>(produto?.tipo ?? "MATERIA_PRIMA");
+  const [unidade, setUnidade] = useState(produto?.unidade ?? "UN");
+  const [preco, setPreco] = useState(produto ? String(produto.preco ?? "").replace(".", ",") : "");
+  const [estoque, setEstoque] = useState(String(produto?.quantidade_estoque ?? 0));
+  const [estoqueMinimo, setEstoqueMinimo] = useState(String(produto?.estoque_minimo ?? 0));
+  const [registroAnvisa, setRegistroAnvisa] = useState(produto?.registro_anvisa ?? "");
+  const [vencimentoAnvisa, setVencimentoAnvisa] = useState(produto?.vencimento_anvisa ?? "");
+  const [ativo, setAtivo] = useState(produto?.is_ativo ?? true);
 
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
@@ -36,7 +46,7 @@ export default function NovoProdutoModal({ onFechar, onSalvo }: Props) {
     setErro("");
 
     try {
-      await cadastrarProduto({
+      const dados = {
         nome: nome,
         codigo: codigo,
         descricao: descricao,
@@ -47,11 +57,16 @@ export default function NovoProdutoModal({ onFechar, onSalvo }: Props) {
         estoque_minimo: Number(estoqueMinimo) || 0,
         registro_anvisa: registroAnvisa || null,
         vencimento_anvisa: vencimentoAnvisa || null,
-        is_ativo: true,
-      });
+        is_ativo: ativo,
+      };
+      if (produto) {
+        await atualizarProduto(produto.id, dados);
+      } else {
+        await cadastrarProduto(dados);
+      }
       onSalvo();
-    } catch {
-      setErro("Não foi possível salvar o produto.");
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível salvar o produto."));
     }
 
     setSalvando(false);
@@ -61,7 +76,9 @@ export default function NovoProdutoModal({ onFechar, onSalvo }: Props) {
     <div className={styles.fundoModal} onClick={onFechar}>
       {/* stopPropagation pra não fechar quando clica dentro do modal */}
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <h2 className={styles.modalTitulo}>Novo produto</h2>
+        <h2 className={styles.modalTitulo}>
+          {produto ? `Editar produto ${produto.codigo}` : "Novo produto"}
+        </h2>
 
         {erro && <p className={styles.erro} style={{ marginBottom: 12 }}>{erro}</p>}
 
@@ -154,6 +171,13 @@ export default function NovoProdutoModal({ onFechar, onSalvo }: Props) {
                 onChange={(e) => setVencimentoAnvisa(e.target.value)}
               />
             </label>
+
+            {produto && (
+              <label className={styles.checkbox}>
+                <input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} />
+                Produto ativo
+              </label>
+            )}
           </div>
 
           <div className={styles.rodapeForm}>

@@ -1,9 +1,15 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { isActivePath, navSections, type NavItem } from "@/app/config/nav";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
+import {
+  getActiveChild,
+  isActivePath,
+  navSections,
+  type NavItem,
+} from "@/app/config/nav";
 import { ChevronIcon, CollapseIcon, navIcons } from "./Icons";
 import styles from "./Sidebar.module.css";
 
@@ -27,8 +33,12 @@ type SidebarProps = {
   onNavigate: () => void;
 };
 
+type ActiveRoute = {
+  pathname: string;
+  searchParams: URLSearchParams | null;
+};
+
 export default function Sidebar({ mobileOpen, onNavigate }: SidebarProps) {
-  const pathname = usePathname();
   // Estado manual de abertura dos grupos; sem valor = aberto se a rota estiver ativa.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
@@ -42,7 +52,7 @@ export default function Sidebar({ mobileOpen, onNavigate }: SidebarProps) {
     setOpenGroups((g) => ({ ...g, [href]: !isOpen }));
   }
 
-  function renderItem(item: NavItem) {
+  function renderItem(item: NavItem, { pathname, searchParams }: ActiveRoute) {
     const Icon = navIcons[item.icon];
     const active = isActivePath(pathname, item.href);
 
@@ -65,6 +75,8 @@ export default function Sidebar({ mobileOpen, onNavigate }: SidebarProps) {
 
     const isOpen = openGroups[item.href] ?? active;
     const submenuId = `submenu-${item.href.replaceAll("/", "")}`;
+    // Só um subitem fica ativo por vez (ver getActiveChild).
+    const activeChild = getActiveChild(pathname, item.children, searchParams);
 
     return (
       <li key={item.href}>
@@ -87,7 +99,7 @@ export default function Sidebar({ mobileOpen, onNavigate }: SidebarProps) {
               <Link
                 href={child.href}
                 className={styles.sublink}
-                aria-current={isActivePath(pathname, child.href) ? "page" : undefined}
+                aria-current={child === activeChild ? "page" : undefined}
                 onClick={onNavigate}
               >
                 {child.label}
@@ -99,30 +111,63 @@ export default function Sidebar({ mobileOpen, onNavigate }: SidebarProps) {
     );
   }
 
-  return (
-    <aside
-      id="app-sidebar"
-      className={`${styles.sidebar} ${mobileOpen ? styles.open : ""}`}
-      aria-label="Navegação principal"
-    >
-      <div className={styles.brand}>
-        <span className={styles.logo}>VV</span>
-        <span className={styles.brandText}>
-          <strong>ValeViva</strong>
-          <small>Financeiro</small>
-        </span>
-      </div>
-
+  function renderNav(route: ActiveRoute) {
+    return (
       <nav className={styles.nav}>
         {navSections.map((section) => (
           <div key={section.title} className={styles.section}>
             <p className={styles.sectionTitle}>
               <span>{section.title}</span>
             </p>
-            <ul className={styles.list}>{section.items.map(renderItem)}</ul>
+            <ul className={styles.list}>
+              {section.items.map((item) => renderItem(item, route))}
+            </ul>
           </div>
         ))}
       </nav>
+    );
+  }
+
+  return (
+    <aside
+      id="app-sidebar"
+      className={`${styles.sidebar} ${mobileOpen ? styles.open : ""}`}
+      aria-label="Navegação principal"
+    >
+      <Link href="/dashboard" className={styles.brand} onClick={onNavigate}>
+        {/* Texto escuro no tema claro, texto branco no tema escuro. */}
+        <Image
+          src="/brand/logo-escura.png"
+          alt="ValeViva — Gestão inteligente"
+          width={391}
+          height={120}
+          className={`${styles.logoFull} ${styles.logoOnLight}`}
+          priority
+        />
+        <Image
+          src="/brand/logo-branca.png"
+          alt="ValeViva — Gestão inteligente"
+          width={391}
+          height={120}
+          className={`${styles.logoFull} ${styles.logoOnDark}`}
+          priority
+        />
+        {/* Menu recolhido no desktop: só o símbolo cabe. */}
+        <Image
+          src="/brand/simbolo.png"
+          alt="ValeViva"
+          width={160}
+          height={97}
+          className={styles.logoSymbol}
+          priority
+        />
+      </Link>
+
+      {/* A rota atual só é conhecida em runtime em rotas dinâmicas (ex.: /pedidos-compra/[id]),
+          então a parte que depende dela fica num Suspense; o fallback é o menu sem item ativo. */}
+      <Suspense fallback={renderNav({ pathname: "", searchParams: null })}>
+        <WithActiveRoute render={renderNav} />
+      </Suspense>
 
       <div className={styles.footer}>
         <button
@@ -137,4 +182,10 @@ export default function Sidebar({ mobileOpen, onNavigate }: SidebarProps) {
       </div>
     </aside>
   );
+}
+
+function WithActiveRoute({ render }: { render: (route: ActiveRoute) => React.ReactNode }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  return render({ pathname, searchParams });
 }

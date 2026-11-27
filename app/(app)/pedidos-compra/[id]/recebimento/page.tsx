@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import styles from "@/app/styles/paginas.module.css";
 import { formatDate } from "@/app/lib/format";
 import { buscarPedido, hojeISO, registrarRecebimento, type PedidoCompra } from "@/app/lib/pedidosCompra";
 
-export default function RecebimentoPage() {
+function RecebimentoConteudo() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
@@ -143,5 +143,14 @@ export default function RecebimentoPage() {
         </form>
       )}
     </section>
+  );
+}
+
+// useParams lê o [id] da URL, que só existe em tempo de execução: precisa de Suspense.
+export default function RecebimentoPage() {
+  return (
+    <Suspense fallback={<p style={{ padding: 24 }}>Carregando...</p>}>
+      <RecebimentoConteudo />
+    </Suspense>
   );
 }

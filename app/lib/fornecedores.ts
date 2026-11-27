@@ -1,5 +1,7 @@
 // Chamadas da API de fornecedores
 
+import { falharComMensagem } from "./api";
+
 export type Fornecedor = {
   id: number;
   razao_social: string;
@@ -30,5 +32,24 @@ export async function cadastrarFornecedor(fornecedor: NovoFornecedor) {
   });
   if (!resposta.ok) {
     throw new Error("Erro ao cadastrar o fornecedor");
+  }
+}
+
+export async function atualizarFornecedor(id: number, fornecedor: NovoFornecedor) {
+  const resposta = await fetch(`/backend/fornecedor/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(fornecedor),
+  });
+  if (!resposta.ok) {
+    await falharComMensagem(resposta, "Erro ao atualizar o fornecedor");
+  }
+}
+
+// O backend apaga junto os pedidos de compra do fornecedor.
+export async function excluirFornecedor(id: number) {
+  const resposta = await fetch(`/backend/fornecedor/${id}`, { method: "DELETE" });
+  if (!resposta.ok) {
+    await falharComMensagem(resposta, "Erro ao excluir o fornecedor");
   }
 }

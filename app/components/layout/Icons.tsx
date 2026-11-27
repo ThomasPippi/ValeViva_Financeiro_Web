@@ -31,13 +31,6 @@ export const DashboardIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const WalletIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3" />
-    <path d="M21 10h-5a2 2 0 0 0 0 4h5z" />
-  </Svg>
-);
-
 export const BellIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -125,7 +118,6 @@ export const PurchaseOrdersIcon = (p: IconProps) => (
 
 export const navIcons: Record<IconName, (p: IconProps) => ReactElement> = {
   dashboard: DashboardIcon,
-  wallet: WalletIcon,
   notifications: BellIcon,
   rawMaterial: RawMaterialIcon,
   productionOrder: ProductionOrderIcon,

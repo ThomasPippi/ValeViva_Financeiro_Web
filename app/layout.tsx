@@ -14,10 +14,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | ValeViva Financeiro",
-    default: "ValeViva Financeiro",
+    template: "%s | ValeViva PCP",
+    default: "ValeViva PCP",
   },
-  description: "Gestão financeira ValeViva",
+  description: "Planejamento e Controle da Produção (PCP) ValeViva",
 };
 
 // Aplica tema e estado da sidebar salvos antes do primeiro paint (evita flash).

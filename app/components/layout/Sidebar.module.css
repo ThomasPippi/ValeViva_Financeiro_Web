@@ -13,41 +13,33 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
   height: var(--topbar-height);
   padding: 0 18px;
+  flex-shrink: 0;
   border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
 }
 
-.logo {
-  display: grid;
-  place-items: center;
+.logoFull {
+  width: auto;
+  height: 40px;
+}
+
+.logoOnDark {
+  display: none;
+}
+
+:global(:root[data-theme="dark"]) .logoOnLight {
+  display: none;
+}
+
+:global(:root[data-theme="dark"]) .logoOnDark {
+  display: block;
+}
+
+.logoSymbol {
+  display: none;
   width: 34px;
-  height: 34px;
-  flex-shrink: 0;
-  border-radius: 9px;
-  background: var(--accent);
-  color: var(--accent-contrast);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.brandText {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-  white-space: nowrap;
-}
-
-.brandText strong {
-  font-size: 15px;
-}
-
-.brandText small {
-  font-size: 12px;
-  color: var(--text-muted);
+  height: auto;
 }
 
 /* ---------- Navegação ---------- */
@@ -184,7 +176,11 @@
     justify-content: center;
   }
 
-  :global(:root[data-sidebar="collapsed"]) .brandText,
+  :global(:root[data-sidebar="collapsed"]) .logoSymbol {
+    display: block;
+  }
+
+  :global(:root[data-sidebar="collapsed"]) .logoFull,
   :global(:root[data-sidebar="collapsed"]) .label,
   :global(:root[data-sidebar="collapsed"]) .chevron,
   :global(:root[data-sidebar="collapsed"]) .sublist {

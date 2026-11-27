@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import styles from "@/app/styles/paginas.module.css";
 import { formatCurrency } from "@/app/lib/format";
-import { buscarProdutos, nomesTipo, type Produto } from "@/app/lib/produtos";
-import NovoProdutoModal from "./NovoProdutoModal";
+import { mensagemDeErro } from "@/app/lib/api";
+import { buscarProdutos, excluirProduto, nomesTipo, type Produto } from "@/app/lib/produtos";
+import ProdutoModal from "./ProdutoModal";
 
 export default function ProdutosPage() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -15,6 +16,8 @@ export default function ProdutosPage() {
   const [tipo, setTipo] = useState("TODOS");
 
   const [mostrarNovo, setMostrarNovo] = useState(false);
+  const [editando, setEditando] = useState<Produto | null>(null);
+  const [excluindoId, setExcluindoId] = useState<number | null>(null);
 
   function carregarProdutos() {
     buscarProdutos()
@@ -29,6 +32,26 @@ export default function ProdutosPage() {
   useEffect(() => {
     carregarProdutos();
   }, []);
+
+  async function excluir(produto: Produto) {
+    const confirmou = window.confirm(
+      `Excluir o produto "${produto.codigo} - ${produto.nome}"?\n\n` +
+        "Também serão excluídos os itens de pedidos de compra, ordens de produção, lotes, " +
+        "saldos e movimentações de estoque, BOM e roteiros ligados a ele. " +
+        "Essa ação não pode ser desfeita.",
+    );
+    if (!confirmou) return;
+
+    setExcluindoId(produto.id);
+    setErro("");
+    try {
+      await excluirProduto(produto.id);
+      carregarProdutos();
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível excluir o produto."));
+    }
+    setExcluindoId(null);
+  }
 
   // filtra pela busca (nome ou código) e pelo tipo
   const produtosFiltrados = produtos.filter((produto) => {
@@ -88,6 +111,7 @@ export default function ProdutosPage() {
               <th>Preço</th>
               <th>Estoque</th>
               <th>Status</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -113,6 +137,21 @@ export default function ProdutosPage() {
                     <span className={styles.tag}>Inativo</span>
                   )}
                 </td>
+                <td>
+                  <div className={styles.acoesLinha}>
+                    <button type="button" className={styles.botaoPequeno} onClick={() => setEditando(produto)}>
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.botaoPequeno} ${styles.botaoPerigo}`}
+                      onClick={() => excluir(produto)}
+                      disabled={excluindoId === produto.id}
+                    >
+                      {excluindoId === produto.id ? "Excluindo..." : "Excluir"}
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -124,11 +163,18 @@ export default function ProdutosPage() {
         )}
       </div>
 
-      {mostrarNovo && (
-        <NovoProdutoModal
-          onFechar={() => setMostrarNovo(false)}
+      {(mostrarNovo || editando) && (
+        <ProdutoModal
+          // key: remonta o modal com os dados certos ao trocar de produto
+          key={editando?.id ?? "novo"}
+          produto={editando ?? undefined}
+          onFechar={() => {
+            setMostrarNovo(false);
+            setEditando(null);
+          }}
           onSalvo={() => {
             setMostrarNovo(false);
+            setEditando(null);
             carregarProdutos();
           }}
         />
